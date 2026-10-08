@@ -1,0 +1,24 @@
+# Unreal generated
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+Build/
+Plugins/**/Binaries/
+Plugins/**/Intermediate/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.sln
+*.suo
+*.xcworkspace
+*.code-workspace
+
+# Blender autosaves
+*.blend1
+*.blend2
+
+# Local test builds
+Tests/**/build/

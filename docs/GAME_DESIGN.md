@@ -129,7 +129,7 @@ Tiered checklist so detail work is tracked, not forgotten:
   significance manager.
 
 ## 9. Milestones
-1. **M0 – Flight prototype (3–4 wks):** greybox terrain, broom movement, camera, speed FX. *Gate: flying is fun.*
+1. **M0 – Flight prototype (3–4 wks):** greybox terrain, broom movement, camera, speed FX. *Gate: flying is fun.* — in progress, see [M0_FLIGHT_PROTOTYPE.md](M0_FLIGHT_PROTOTYPE.md).
 2. **M1 – Greybox world (4–6 wks):** all zones blocked out, scale tested by flight time, landmarks readable.
 3. **M2 – Castle art pass (8–12 wks):** modular kit, Great Hall, towers, viaduct, Owlery, Lumen lighting & time of day.
 4. **M3 – Living world v1 (6–8 wks):** Mass students, owls, Squid, centaurs, unicorns, Hagrid; schedules.
