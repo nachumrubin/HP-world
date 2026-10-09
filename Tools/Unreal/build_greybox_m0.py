@@ -155,6 +155,7 @@ class UnrealBackend:
         # Golden hour, low sun over the lake: the "first flight" mood.
         sun = spawn(unreal.DirectionalLight, "Sun", (-9.0, 125.0, 0.0))
         try:
+            sun.light_component.set_mobility(unreal.ComponentMobility.MOVABLE)  # a Static sun is never baked here, so it would light nothing
             sun.light_component.set_editor_property("atmosphere_sun_light", True)
             sun.light_component.set_editor_property("intensity", 8.0)
             sun.light_component.set_editor_property("light_color", unreal.Color(255, 214, 170, 255))
@@ -163,6 +164,7 @@ class UnrealBackend:
         spawn(unreal.SkyAtmosphere, "SkyAtmosphere")
         sky = spawn(unreal.SkyLight, "SkyLight")
         try:
+            sky.light_component.set_mobility(unreal.ComponentMobility.MOVABLE)
             sky.light_component.set_editor_property("real_time_capture", True)
         except Exception as error:
             unreal.log_warning(f"Greybox: sky light setup incomplete: {error}")
