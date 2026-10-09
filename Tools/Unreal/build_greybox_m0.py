@@ -137,7 +137,9 @@ class UnrealBackend:
     def landscape(self, material):
         for actor in self.actors.get_all_level_actors():
             if isinstance(actor, unreal.LandscapeProxy):
-                actor.set_editor_property("landscape_material", self.material_instances[material])
+                # Prefer the procedural M1 material (Tools/Unreal/build_landscape_material_m1.py) over the flat greybox colour.
+                m1 = unreal.load_asset("/Game/HPW/Landscape/M_HPW_Landscape") if unreal.EditorAssetLibrary.does_asset_exist("/Game/HPW/Landscape/M_HPW_Landscape") else None
+                actor.set_editor_property("landscape_material", m1 or self.material_instances[material])
                 return
         unreal.log_warning("Greybox: layout says the Landscape is imported but none was found in the level")
 
