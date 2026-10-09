@@ -69,7 +69,7 @@ struct HPFLIGHT_API FBroomFlightSettings
 	float PullUpLeadTime = 2.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "World Limits", meta = (Units = "Meters"))
-	float SoftBoundaryRadius = 2000.f;
+	float SoftBoundaryRadius = 3000.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "World Limits", meta = (Units = "Meters"))
 	float SoftCeiling = 700.f;

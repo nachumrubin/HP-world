@@ -32,6 +32,9 @@ SHAPES = {
 }
 M_TO_CM = 100.0
 
+# Set by build() once the Landscape is imported (layout "landscape.imported"): the shared terrain height function.
+GROUND_HEIGHT = None
+
 
 def layout_path():
     here = os.path.dirname(os.path.abspath(__file__))
@@ -57,6 +60,10 @@ class DryRunBackend:
         assert material in self.materials, f"unknown material '{material}' on {label}"
         assert all(s > 0 for s in scale_m), f"non-positive size on {label}: {scale_m}"
         self.spawned.append((folder, label))
+
+    def landscape(self, material):
+        assert material in self.materials, material
+        self.spawned.append(("Terrain", f"Landscape material {material}"))
 
     def lighting(self):
         self.spawned.append(("Lighting", "Sun/Sky/Fog/Clouds"))
@@ -101,7 +108,11 @@ class UnrealBackend:
                 asset_name, MATERIAL_DIR, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
         lib = unreal.MaterialEditingLibrary
         lib.set_material_instance_parent(mi, unreal.load_asset("/Engine/BasicShapes/BasicShapeMaterial"))
-        if not lib.set_material_instance_vector_parameter_value(mi, "Color", unreal.LinearColor(rgb[0], rgb[1], rgb[2], 1.0)):
+        # The setter's bool return is unreliable across engine versions (False even when applied), so verify by reading back.
+        color = unreal.LinearColor(rgb[0], rgb[1], rgb[2], 1.0)
+        lib.set_material_instance_vector_parameter_value(mi, "Color", color)
+        lib.update_material_instance(mi)
+        if lib.get_material_instance_vector_parameter_value(mi, "Color") != color:
             unreal.log_warning(f"Greybox: could not set Color on {asset_name}")
         unreal.EditorAssetLibrary.save_loaded_asset(mi)
         return mi
@@ -112,7 +123,8 @@ class UnrealBackend:
     def shape(self, shape, label, folder, center_m, scale_m, rotation, material, tags, collision):
         location = unreal.Vector(*(c * M_TO_CM for c in center_m))
         rotator = unreal.Rotator(roll=rotation[2], pitch=rotation[0], yaw=rotation[1])
-        actor = self.actors.spawn_actor_from_object(self.meshes[shape], location, rotator)
+        actor = self.actors.spawn_actor_from_class(unreal.StaticMeshActor, location, rotator)
+        actor.static_mesh_component.set_static_mesh(self.meshes[shape])
         actor.set_actor_scale3d(unreal.Vector(*scale_m))
         actor.set_actor_label(label)
         actor.set_folder_path(f"Greybox/{folder}")
@@ -122,10 +134,17 @@ class UnrealBackend:
         if not collision:
             component.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
 
+    def landscape(self, material):
+        for actor in self.actors.get_all_level_actors():
+            if isinstance(actor, unreal.LandscapeProxy):
+                actor.set_editor_property("landscape_material", self.material_instances[material])
+                return
+        unreal.log_warning("Greybox: layout says the Landscape is imported but none was found in the level")
+
     def lighting(self):
-        def spawn(cls, label, rotation=(0.0, 0.0, 0.0)):
+        def spawn(cls, label, rotation=(0.0, 0.0, 0.0), height_cm=50000):
             actor = self.actors.spawn_actor_from_class(
-                cls, unreal.Vector(0, 0, 50000), unreal.Rotator(roll=rotation[2], pitch=rotation[0], yaw=rotation[1]))
+                cls, unreal.Vector(0, 0, height_cm), unreal.Rotator(roll=rotation[2], pitch=rotation[0], yaw=rotation[1]))
             actor.set_actor_label(label)
             actor.set_folder_path("Greybox/Lighting")
             self._tag(actor, [])
@@ -145,10 +164,11 @@ class UnrealBackend:
             sky.light_component.set_editor_property("real_time_capture", True)
         except Exception as error:
             unreal.log_warning(f"Greybox: sky light setup incomplete: {error}")
-        fog = spawn(unreal.ExponentialHeightFog, "HighlandMist")
+        fog = spawn(unreal.ExponentialHeightFog, "HighlandMist", height_cm=0)  # fog is densest at and below its own height
         try:
-            fog.component.set_editor_property("fog_density", 0.015)
-            fog.component.set_editor_property("enable_volumetric_fog", True)
+            fog.component.set_editor_property("fog_density", 0.0015)
+            fog.component.set_editor_property("fog_height_falloff", 0.02)
+            fog.component.set_editor_property("enable_volumetric_fog", False)
         except Exception as error:
             unreal.log_warning(f"Greybox: fog setup incomplete: {error}")
         spawn(unreal.VolumetricCloud, "Clouds")
@@ -173,6 +193,10 @@ def yaw_towards(src, dst):
     return math.degrees(math.atan2(dst[1] - src[1], dst[0] - src[0]))
 
 
+def ground(x, y):
+    return GROUND_HEIGHT(x, y) if GROUND_HEIGHT else 0.0
+
+
 def build_part(backend, folder, part):
     kind = part["type"]
     label = part["label"]
@@ -190,6 +214,12 @@ def build_part(backend, folder, part):
         d, h = part["diameter"], part["height"]
         cx, cy = part["center"]
         backend.shape(kind, label, folder, (cx, cy, base + h / 2), (d, d, h), (0, 0, 0), material, tags, collision)
+
+    elif kind == "lake":
+        # The lake is a union of overlapping discs; the Landscape basin (Tools/terrain.py) shapes the shore.
+        for i, (cx, cy, radius) in enumerate(part["blobs"]):
+            backend.shape("cylinder", f"{label}{i + 1}", folder, (cx, cy, base + part.get("thickness", 0.2) / 2),
+                          (radius * 2, radius * 2, part.get("thickness", 0.2)), (0, 0, 0), material, tags, collision)
 
     elif kind == "sphere":
         d = part["diameter"]
@@ -277,7 +307,7 @@ def build_part(backend, folder, part):
             h = rng.uniform(*part["height"])
             size = (d, d * rng.uniform(0.7, 1.0), h) if shape == "box" else (d, d, h)
             placed += 1
-            backend.shape(shape, f"{label}{placed}", folder, (px, py, base + h / 2), size, (0, rng.uniform(0, 360), 0),
+            backend.shape(shape, f"{label}{placed}", folder, (px, py, base + ground(px, py) + h / 2), size, (0, rng.uniform(0, 360), 0),
                           material, tags, collision)
 
     elif kind == "mountains":
@@ -296,6 +326,12 @@ def build_part(backend, folder, part):
 
 
 def build(backend, layout):
+    global GROUND_HEIGHT
+    landscape = layout.get("landscape", {}).get("imported", False)
+    if landscape:
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+        import terrain
+        GROUND_HEIGHT = terrain.make_height_function(layout)
     backend.begin(layout["map_path"], layout["materials"])
     zones = layout["zones"]
     task = unreal.ScopedSlowTask(len(zones), "Building Hogwarts greybox...") if unreal else None
@@ -305,7 +341,11 @@ def build(backend, layout):
         if task:
             task.enter_progress_frame(1, f"Building {zone['name']}...")
         for part in zone["parts"]:
+            if landscape and part.get("terrain"):
+                continue  # the Landscape provides this ground, hill or mountain
             build_part(backend, zone["name"], part)
+    if landscape:
+        backend.landscape("grass")
     backend.lighting()
     start = layout["player_start"]
     backend.player_start(start["position"], yaw_towards(start["position"], start["face"]))

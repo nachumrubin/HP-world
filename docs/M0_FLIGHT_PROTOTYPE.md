@@ -48,7 +48,7 @@ Stick pitch is flight-sim style (push forward to dive); change it with `bInvertS
 - **Dive for speed:** diving trades height for speed and climbing loses speed. A boosted dive reaches about 60 m/s.
 - **Automatic pull-up:** close to the ground or water the nose lifts on its own, and it starts earlier the faster you are falling. A full-speed dive becomes a swoop over the grass or lake instead of a crash. You can never get closer than 1.2 m to the surface.
 - **Momentum:** velocity follows the nose slightly late, so turns have some drift (`VelocityGrip`).
-- **World edge:** beyond 2 km from the castle, a magical wind turns you back. There is also a soft ceiling at 700 m.
+- **World edge:** beyond 3 km from the castle, a magical wind turns you back. There is also a soft ceiling at 700 m.
 
 ## Tuning
 

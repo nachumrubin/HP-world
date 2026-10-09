@@ -60,7 +60,7 @@ namespace HPFlight
 		double SkimHeight = 400.0;          // below this we count as skimming (water wake, grass FX)
 		double PullUpLeadTime = 2.0;        // seconds before impact that the automatic dive pull-up begins
 
-		double SoftBoundaryRadius = 200000.0; // 2 km from world origin: mist + wind turns you back
+		double SoftBoundaryRadius = 300000.0; // 3 km from world origin: mist + wind turns you back
 		double BoundaryFadeWidth = 30000.0;
 		double BoundaryTurnRate = 60.0;
 		double SoftCeiling = 70000.0;       // 700 m

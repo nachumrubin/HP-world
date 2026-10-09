@@ -22,3 +22,7 @@ Plugins/**/Intermediate/
 
 # Local test builds
 Tests/**/build/
+
+# Generated terrain data (rebuild with Tools/make_heightmap.py)
+Tools/generated/
+__pycache__/
