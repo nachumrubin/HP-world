@@ -41,6 +41,8 @@ HOGSMEADE_HILL = (1560.0, -2235.0, 850.0)  # centre x, y and radius of that hill
 RIVER = [(-250.0, 1050.0), (-300.0, 800.0), (-340.0, 580.0), (-330.0, 440.0), (-315.0, 330.0)]
 RIVER_HALF_WIDTH = 8.0
 RIVER_BED = -2.0
+FOREST_X = (-1300.0, 1000.0)  # north-south extent of the Forbidden Forest band (the layout scatter circles follow it)
+FOREST_Y = 1300.0
 LAND_MIN = 1.0  # dry ground never dips below this outside the lake basin
 
 # Flat pads: (label, x, y, radius, blend, height). Buildings in the layout sit at z=0 (or on their own plinth), so the
@@ -63,6 +65,12 @@ CLIFF_HEIGHT = 60.0
 
 def _ns(xp):
     return xp if xp is not None else _Scalar
+
+
+def smooth_min(a, b, k, xp):
+    """Polynomial smooth minimum: blends two distance fields so lake lobes merge into one smooth bean."""
+    h = xp.clip(0.5 + 0.5 * (b - a) / k, 0.0, 1.0)
+    return b * (1.0 - h) + a * h - k * h * (1.0 - h)
 
 
 def smoothstep(e0, e1, v, xp):
@@ -149,8 +157,8 @@ def make_height_function(layout):
 
         # Rolling Scottish ground: gentle everywhere, livelier in the forest valley and the highlands.
         rolling = 3.5 + fbm(x, y, 260.0, 4, 11, xp) * 2.5  # sits above the lake surface (z=0) everywhere on land
-        forest_dist = xp.hypot(x + 50.0, y - 1500.0)
-        forest_w = 1.0 - smoothstep(500.0, 1100.0, forest_dist, xp)
+        forest_dist = xp.hypot(x - xp.clip(x, FOREST_X[0], FOREST_X[1]), y - FOREST_Y)  # the forest is a long band running north-south
+        forest_w = 1.0 - smoothstep(350.0, 800.0, forest_dist, xp)
         hills = fbm(x, y, 420.0, 4, 23, xp) * 7.0 * forest_w
         valley = -1.0 * forest_w
         highland_rise = 45.0 * smoothstep(1800.0, 3300.0, r_center, xp)
@@ -179,9 +187,10 @@ def make_height_function(layout):
         rn = None  # normalised distance to the nearest lake circle: < 1 is inside the lake
         for bx, by, br in blobs:
             r_i = xp.hypot(x - bx, y - by) / br
-            rn = r_i if rn is None else xp.minimum(rn, r_i)
+            rn = r_i if rn is None else smooth_min(rn, r_i, 0.6, xp)
         rn = rn + 0.22 * (0.5 + 0.5 * fbm(x, y, 110.0, 3, 77, xp))  # ragged shoreline, always inside the water discs
-        basin = 1.0 - smoothstep(0.55, 1.02, rn, xp)
+        # Linear bank (not smoothstep): a steady slope at the waterline keeps the shore line stable under Landscape LOD.
+        basin = xp.clip((1.02 - rn) / 0.45, 0.0, 1.0)
         h = h * (1.0 - basin) + LAKE_DEPTH * basin
         ix, iy = island["center"]
         island_dome = LAKE_DEPTH + (island["height"] - LAKE_DEPTH) * (

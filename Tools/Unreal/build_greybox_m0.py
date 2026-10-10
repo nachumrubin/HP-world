@@ -274,6 +274,19 @@ def build_part(backend, folder, part):
 
     elif kind == "lake":
         # The lake is a union of overlapping discs; the Landscape basin (Tools/terrain.py) shapes the shore.
+        if "plane" in part:
+            # The Landscape basin decides where the shoreline is, so the lake is a grid of water tiles under it.
+            # Tiles, not one huge slab: a 2.5 km thin box renders with blocky lighting artefacts.
+            px, py = part["plane"]["center"]; sx, sy = part["plane"]["size"]
+            t = part.get("thickness", 0.2)
+            tile = part["plane"].get("tile", 300.0)
+            nx, ny = max(1, round(sx / tile)), max(1, round(sy / tile))
+            for ix in range(nx):
+                for iy in range(ny):
+                    cx = px - sx / 2 + (ix + 0.5) * sx / nx
+                    cy = py - sy / 2 + (iy + 0.5) * sy / ny
+                    backend.shape("box", f"{label}_{ix}_{iy}", folder, (cx, cy, base + t / 2), (sx / nx + 0.5, sy / ny + 0.5, t), (0, 0, 0), material, tags, collision)
+            return
         for i, (cx, cy, radius) in enumerate(part["blobs"]):
             backend.shape("cylinder", f"{label}{i + 1}", folder, (cx, cy, base + part.get("thickness", 0.2) / 2),
                           (radius * 2, radius * 2, part.get("thickness", 0.2)), (0, 0, 0), material, tags, collision)

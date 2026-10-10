@@ -11,6 +11,13 @@ MAP = "/Game/HPW/Maps/M0_Greybox"
 MAT_DIR = "/Game/HPW/Landscape"
 MAT_NAME = "M_HPW_Landscape"
 
+# Road polylines in metres (X = north, Y = east): round the lake's west side to the station, the drive to the gates, the hut and a forest path.
+ROADS = [  # separate roads, each a polyline
+    [(1500.0, -2000.0), (1300.0, -1750.0), (1000.0, -1700.0), (600.0, -1700.0), (200.0, -1720.0), (-150.0, -1600.0), (-300.0, -1480.0), (-430.0, -1400.0)],
+    [(300.0, 40.0), (700.0, 60.0), (1086.0, 80.0), (900.0, 300.0), (642.0, 468.0)],
+    [(642.0, 468.0), (500.0, 900.0), (300.0, 1300.0), (100.0, 1700.0), (-200.0, 2000.0), (-500.0, 2200.0)],
+]
+
 mel = unreal.MaterialEditingLibrary
 ME = unreal.MaterialExpressionVertexNormalWS  # noqa: F841 (fail early if the API moved)
 
@@ -79,14 +86,47 @@ def make_material():
     snow = color("Snow", (0.75, 0.78, 0.82))
     shore = color("Shore", (0.10, 0.075, 0.045))
 
-    # Forbidden Forest: the layout scatters trees around (-50 m, 1500 m) with radius 950 m (UE cm: X = north, Y = east).
+    # Forbidden Forest: a band running north-south (layout ForestTree circles, centre line Y = 1300 m, X from -1300 to 1000 m).
     # Far too few cones to read as a forest from the air, so the ground under them goes dark conifer green.
     xy = link(world, node(unreal.MaterialExpressionComponentMask, r=True, g=True, b=False, a=False), "")
-    centre = node(unreal.MaterialExpressionConstant2Vector, r=-5000.0, g=150000.0)
+    wx = link(world, node(unreal.MaterialExpressionComponentMask, r=True, g=False, b=False, a=False), "")
+    clamped = link(wx, node(unreal.MaterialExpressionClamp, min_default=-130000.0, max_default=100000.0), "")
+    closest = link(clamped, node(unreal.MaterialExpressionAppendVector), "A")
+    link(node(unreal.MaterialExpressionConstant, r=130000.0), closest, "B")
     dist = link(xy, node(unreal.MaterialExpressionDistance), "A")
-    link(centre, dist, "B")
-    forest_mask = ramp(dist, scalar("ForestEdgeCm", 100000.0), scalar("ForestCoreCm", 60000.0))
+    link(closest, dist, "B")
+    forest_mask = ramp(dist, scalar("ForestEdgeCm", 62000.0), scalar("ForestCoreCm", 40000.0))
     forest = color("ForestGround", (0.012, 0.04, 0.02))
+
+    # Roads (metres, X = north, Y = east): painted as packed earth. Tools/greybox_layout.json has no road parts; these are ground colour only.
+    road_dist = None
+    for (ax, ay), (bx, by) in [pair for road in ROADS for pair in zip(road, road[1:])]:
+        ax, ay, bx, by = (v * 100.0 for v in (ax, ay, bx, by))
+        if (ax, ay) == (bx, by):
+            continue
+        a_c = node(unreal.MaterialExpressionConstant2Vector, r=ax, g=ay)
+        ab_c = node(unreal.MaterialExpressionConstant2Vector, r=bx - ax, g=by - ay)
+        len2 = node(unreal.MaterialExpressionConstant, r=(bx - ax) ** 2 + (by - ay) ** 2)
+        pa = link(xy, node(unreal.MaterialExpressionSubtract), "A")
+        link(a_c, pa, "B")
+        dot = link(pa, node(unreal.MaterialExpressionDotProduct), "A")
+        link(ab_c, dot, "B")
+        frac = link(dot, node(unreal.MaterialExpressionDivide), "A")
+        link(len2, frac, "B")
+        t = link(frac, node(unreal.MaterialExpressionSaturate), "")
+        off = link(ab_c, node(unreal.MaterialExpressionMultiply), "A")
+        link(t, off, "B")
+        point = link(a_c, node(unreal.MaterialExpressionAdd), "A")
+        link(off, point, "B")
+        d_seg = link(xy, node(unreal.MaterialExpressionDistance), "A")
+        link(point, d_seg, "B")
+        if road_dist is None:
+            road_dist = d_seg
+        else:
+            road_dist = link(road_dist, node(unreal.MaterialExpressionMin), "A")
+            link(d_seg, road_dist, "B")
+    road_mask = ramp(road_dist, scalar("RoadEdgeCm", 2200.0), scalar("RoadCoreCm", 1100.0))
+    road = color("Road", (0.2, 0.15, 0.09))
 
     # West side (negative Y, the Hogsmeade side) is dry golden hill country on the illustrated map.
     wy = link(world, node(unreal.MaterialExpressionComponentMask, r=False, g=True, b=False, a=False), "")
@@ -95,6 +135,7 @@ def make_material():
 
     base = lerp(grass, rock, rock_mask)
     base = lerp(base, forest, forest_mask)
+    base = lerp(base, road, road_mask)
     # snow settles on flatter high ground, not on near-vertical faces
     snow_amount = link(snow_mask, node(unreal.MaterialExpressionMultiply), "A")
     link(ramp(nz, scalar("SnowSlopeMax", 0.35), scalar("SnowSlopeFull", 0.7)), snow_amount, "B")
@@ -114,6 +155,9 @@ count = 0
 for actor in unreal.EditorLevelLibrary.get_all_level_actors():
     if isinstance(actor, unreal.LandscapeProxy):
         actor.set_editor_property("landscape_material", mat)
+        # Keep far-away terrain detailed enough that the lake shore does not stair-step: cap the coarsest LOD at 2 (about 7 m vertices).
+        actor.set_editor_property("max_lod_level", 2)
+        actor.set_editor_property("lod0_distribution_setting", 2.0)
         count += 1
 if count:
     unreal.EditorLevelLibrary.save_current_level()
