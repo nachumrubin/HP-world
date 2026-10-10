@@ -68,7 +68,7 @@ def make_material():
     world = node(unreal.MaterialExpressionWorldPosition)
     z = link(world, node(unreal.MaterialExpressionComponentMask, r=False, g=False, b=True, a=False), "")
     snow_mask = ramp(z, scalar("SnowStartCm", 38000.0), scalar("SnowFullCm", 52000.0))
-    shore_mask = ramp(z, scalar("ShoreTopCm", 700.0), scalar("ShoreBottomCm", 50.0))
+    shore_mask = ramp(z, scalar("ShoreTopCm", 150.0), scalar("ShoreBottomCm", -100.0))
 
     # Large-scale grass variation so the plains don't read as one flat colour.
     noise = node(unreal.MaterialExpressionNoise, scale=0.00004, quality=1, levels=3, output_min=0.0, output_max=1.0,

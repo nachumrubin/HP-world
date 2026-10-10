@@ -170,7 +170,7 @@ class UnrealBackend:
             unreal.log_warning(f"Greybox: sky light setup incomplete: {error}")
         fog = spawn(unreal.ExponentialHeightFog, "HighlandMist", height_cm=0)  # fog is densest at and below its own height
         try:
-            fog.component.set_editor_property("fog_density", 0.0015)
+            fog.component.set_editor_property("fog_density", 0.0004)
             fog.component.set_editor_property("fog_height_falloff", 0.02)
             fog.component.set_editor_property("enable_volumetric_fog", False)
         except Exception as error:
