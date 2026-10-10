@@ -33,7 +33,8 @@
       "parts": [
         {"type": "box", "label": "Ground", "terrain": true, "center": [0, 0], "base": -10, "size": [7000, 7000, 10], "material": "grass"},
         {"type": "lake", "label": "BlackLake", "base": 0.05, "thickness": 0.2, "material": "water", "tags": ["Water"], "blobs": [[1005, -975, 432], [1245, -705, 360], [1050, -450, 288], [1245, -285, 198], [435, -990, 378], [-15, -945, 360], [-195, -585, 306], [-315, -195, 234], [-315, 165, 198], [-45, -285, 252]]},
-        {"type": "cone", "label": "LakeIsland", "terrain": true, "center": [21, -819], "base": 0, "diameter": 60, "height": 12, "material": "rock"}
+        {"type": "cone", "label": "LakeIsland", "terrain": true, "center": [21, -819], "base": 0, "diameter": 60, "height": 12, "material": "rock"},
+        {"type": "scatter", "label": "LakeRock", "shape": "cone", "center": [-100, -600], "radius": 420, "count": 16, "seed": 21, "diameter": [14, 34], "height": [25, 30], "material": "rock", "collision": false, "water_only": true}
       ]
     },
     {
@@ -55,6 +56,10 @@
         {"type": "span", "label": "Viaduct", "from": [60, 220, 55], "to": [240, 330, 40], "width": 6, "height": 4, "material": "stone", "pillar_spacing": 22},
         {"type": "span", "label": "CoveredBridge", "from": [20, -220, 50], "to": [200, -475, 40], "width": 5, "height": 6, "material": "wood", "pillar_spacing": 30},
         {"type": "box", "label": "Boathouse", "center": [-272, 80], "base": 0, "size": [20, 12, 10], "material": "wood"},
+        {"type": "span", "label": "River1", "from": [-250, 1050, 0.05], "to": [-300, 800, 0.05], "width": 19, "height": 0.2, "material": "water"},
+        {"type": "span", "label": "River2", "from": [-300, 800, 0.05], "to": [-340, 580, 0.05], "width": 19, "height": 0.2, "material": "water"},
+        {"type": "span", "label": "River3", "from": [-340, 580, 0.05], "to": [-330, 440, 0.05], "width": 19, "height": 0.2, "material": "water"},
+        {"type": "span", "label": "River4", "from": [-330, 440, 0.05], "to": [-315, 330, 0.05], "width": 19, "height": 0.2, "material": "water"},
         {"type": "box", "label": "MainKeep", "center": [30, 90], "base": 60, "size": [60, 60, 70], "material": "stone"},
         {"type": "box", "label": "NorthWing", "center": [150, -40], "base": 60, "size": [40, 120, 34], "material": "stone"},
         {"type": "box", "label": "LakeWing", "center": [0, -170], "base": 60, "size": [120, 40, 42], "material": "stone"},
@@ -72,7 +77,12 @@
         {"type": "tower", "label": "EastTower", "center": [30, 160], "base": 60, "diameter": 12, "height": 90, "material": "stone"},
         {"type": "tower", "label": "SouthTower", "center": [-150, 60], "base": 60, "diameter": 16, "height": 95, "material": "stone"},
         {"type": "tower", "label": "LakeTowerA", "center": [40, -195], "base": 60, "diameter": 12, "height": 80, "material": "stone"},
-        {"type": "tower", "label": "LakeTowerB", "center": [-60, -195], "base": 60, "diameter": 14, "height": 88, "material": "stone"}
+        {"type": "tower", "label": "LakeTowerB", "center": [-60, -195], "base": 60, "diameter": 14, "height": 88, "material": "stone"},
+        {"type": "box", "label": "MainKeepRoof", "center": [30, 90], "base": 130, "size": [66, 66, 6], "material": "roof"},
+        {"type": "box", "label": "NorthWingRoof", "center": [150, -40], "base": 94, "size": [44, 126, 5], "material": "roof"},
+        {"type": "box", "label": "LakeWingRoof", "center": [0, -170], "base": 102, "size": [126, 44, 5], "material": "roof"},
+        {"type": "box", "label": "EastWingRoof", "center": [-60, 160], "base": 98, "size": [106, 44, 5], "material": "roof"},
+        {"type": "box", "label": "Waterfall", "center": [0, -246], "base": 2, "size": [9, 3, 58], "material": "water"}
       ]
     },
     {
@@ -102,7 +112,7 @@
       "name": "Forbidden Forest",
       "anchor": [-50, 1400],
       "parts": [
-        {"type": "scatter", "label": "ForestTree", "shape": "cone", "center": [-50, 1500], "radius": 950, "count": 3200, "seed": 7, "diameter": [9, 15], "height": [24, 50], "material": "forest", "collision": true, "clearings": [{"name": "CentaurGlade", "center": [95, 1790], "radius": 75}, {"name": "AragogsHollow", "center": [-340, 2080], "radius": 90}, {"name": "UnicornClearing", "center": [312, 1283], "radius": 55}, {"name": "ThestralClearing", "center": [-195, 1210], "radius": 55}, {"name": "HagridsHutClearing", "center": [642, 468], "radius": 40}]}
+        {"type": "scatter", "label": "ForestTree", "shape": "cone", "center": [-50, 1500], "radius": 950, "count": 3200, "seed": 7, "diameter": [9, 15], "height": [24, 50], "material": "forest", "collision": true, "clearings": [{"name": "CentaurGlade", "center": [95, 1790], "radius": 75}, {"name": "AragogsHollow", "center": [-340, 2080], "radius": 90}, {"name": "UnicornClearing", "center": [312, 1283], "radius": 55}, {"name": "ThestralClearing", "center": [-195, 1210], "radius": 55}, {"name": "River0", "center": [-250, 1050], "radius": 22}, {"name": "River1", "center": [-280, 950], "radius": 22}, {"name": "River2", "center": [-300, 850], "radius": 22}, {"name": "River3", "center": [-320, 700], "radius": 22}, {"name": "HagridsHutClearing", "center": [642, 468], "radius": 40}]}
       ]
     },
     {
@@ -127,6 +137,15 @@
       "parts": [
         {"type": "scatter", "label": "HogsmeadeHouse", "shape": "box", "center": [1560, -2235], "radius": 260, "count": 150, "seed": 3, "diameter": [8, 14], "height": [7, 12], "material": "village", "collision": true},
         {"type": "box", "label": "HogsmeadeStation", "center": [-450, -1365], "base": 0, "size": [20, 60, 8], "material": "village"},
+        {"type": "box", "label": "StationPlatform", "center": [-455, -1335], "base": 0, "size": [6, 90, 1.2], "material": "stone"},
+        {"type": "tower", "label": "StationClock", "center": [-438, -1388], "base": 0, "diameter": 7, "height": 26, "material": "stone"},
+        {"type": "box", "label": "StationRoof", "center": [-450, -1365], "base": 8, "size": [24, 64, 3], "material": "roof"},
+        {"type": "box", "label": "HogsHeadInn", "center": [1560, -2235], "base": 56, "size": [18, 14, 14], "material": "wood"},
+        {"type": "box", "label": "HogsHeadInnRoof", "center": [1560, -2235], "base": 70, "size": [20, 16, 3], "material": "roof"},
+        {"type": "box", "label": "ThreeBroomsticks", "center": [1545, -2255], "base": 56, "size": [22, 16, 16], "material": "village"},
+        {"type": "box", "label": "ThreeBroomsticksRoof", "center": [1545, -2255], "base": 72, "size": [24, 18, 3], "material": "roof"},
+        {"type": "box", "label": "Honeydukes", "center": [1580, -2215], "base": 56, "size": [16, 12, 12], "material": "village"},
+        {"type": "box", "label": "HoneydukesRoof", "center": [1580, -2215], "base": 68, "size": [18, 14, 3], "material": "gryffindor"},
         {"type": "span", "label": "RailwayViaduct", "from": [-250, -1900, 30], "to": [-440, -1400, 30], "width": 8, "height": 4, "material": "stone", "pillar_spacing": 20},
         {"type": "box", "label": "Locomotive", "center": [-364.0, -1600.0], "base": 34, "size": [16, 3.4, 4.5], "yaw": 110.8, "material": "gryffindor"},
         {"type": "box", "label": "Carriage1", "center": [-370.6, -1582.5], "base": 34, "size": [14, 3.4, 3.6], "yaw": 110.8, "material": "hufflepuff"},

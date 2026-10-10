@@ -35,13 +35,19 @@ class _Scalar:
 
 
 PAD_H = 0.6  # building pads sit just above the lake surface (z=0) so they never read as shore or flood
+HOGSMEADE_H = 56.0  # the village sits on a big hill, as on both reference maps
+HOGSMEADE_HILL = (1560.0, -2235.0, 850.0)  # centre x, y and radius of that hill
+# River from the forest into the lake (metres). Tools/greybox_layout.json draws the water along the same points.
+RIVER = [(-250.0, 1050.0), (-300.0, 800.0), (-340.0, 580.0), (-330.0, 440.0), (-315.0, 330.0)]
+RIVER_HALF_WIDTH = 8.0
+RIVER_BED = -2.0
 LAND_MIN = 1.0  # dry ground never dips below this outside the lake basin
 
 # Flat pads: (label, x, y, radius, blend, height). Buildings in the layout sit at z=0 (or on their own plinth), so the
 # ground is forced flat there, melting back into the rolling terrain over `blend` metres.
 PADS = [
     ("QuidditchPitch", 975, -100, 130, 90, PAD_H),
-    ("Hogsmeade", 1560, -2235, 230, 120, PAD_H),
+    ("Hogsmeade", 1560, -2235, 200, 330, HOGSMEADE_H),
     ("HogsmeadeStation", -450, -1365, 55, 60, PAD_H),
     ("HagridsHut", 650, 460, 30, 40, PAD_H),
     ("Greenhouses", 243, 500, 55, 50, PAD_H),
@@ -88,6 +94,17 @@ def fbm(x, y, wavelength, octaves, seed, xp):
         amp *= 0.5
         freq *= 2.0
     return total / norm
+
+
+def river_distance(x, y, xp):
+    """Distance in metres from (x, y) to the nearest river segment."""
+    best = None
+    for (ax, ay), (bx, by) in zip(RIVER, RIVER[1:]):
+        dx, dy = bx - ax, by - ay
+        t = xp.clip(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy), 0.0, 1.0)
+        d = xp.hypot(x - (ax + t * dx), y - (ay + t * dy))
+        best = d if best is None else xp.minimum(best, d)
+    return best
 
 
 def mountain_specs(layout):
@@ -144,6 +161,10 @@ def make_height_function(layout):
             cx, cy = part["center"]
             h = xp.maximum(h, dome(x, y, cx, cy, part["diameter"] / 2, part["height"], xp))
 
+        # The hill under Hogsmeade.
+        hx, hy, hr = HOGSMEADE_HILL
+        h = xp.maximum(h, dome(x, y, hx, hy, hr, HOGSMEADE_H + 2.0, xp))
+
         # Mountains: the greybox cones, roughened with ridged noise.
         ridge = 1.0 + 0.30 * fbm(x, y, 220.0, 4, 37, xp)
         for mx, my, mr, mh in mountains:
@@ -161,6 +182,10 @@ def make_height_function(layout):
         island_dome = LAKE_DEPTH + (island["height"] - LAKE_DEPTH) * (
             0.5 + 0.5 * xp.cos(xp.pi * xp.clip(xp.hypot(x - ix, y - iy) / 48.0, 0.0, 1.0)))
         h = xp.maximum(h, island_dome)
+
+        # River channel, cut below the lake surface so the water ribbon shows in it.
+        river_w = 1.0 - smoothstep(RIVER_HALF_WIDTH, RIVER_HALF_WIDTH + 12.0, river_distance(x, y, xp), xp)
+        h = h * (1.0 - river_w) + RIVER_BED * river_w
 
         # Castle cliff: a squared-off plateau, steep over the lake and gentler on the landward side.
         d = ((xp.abs(x) / half_x) ** 6 + (xp.abs(y) / half_y) ** 6) ** (1.0 / 6.0)

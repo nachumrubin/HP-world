@@ -24,6 +24,10 @@ namespace
 		{TEXT("castle_150m_close"), FVector(-12000, -20000, 15000), FVector(0, 0, 8000)},
 		{TEXT("overview_1500m"), FVector(0, -250000, 150000), FVector(0, 0, 5000)},
 		{TEXT("topdown_6km"), FVector(0, 0, 600000), FVector(0, 0, 0)},
+		{TEXT("hogsmeade_hill"), FVector(110000, -150000, 25000), FVector(156000, -223500, 6500)},
+		{TEXT("station_train"), FVector(-10000, -120000, 12000), FVector(-38000, -156000, 3500)},
+		{TEXT("lake_waterfall"), FVector(-20000, -90000, 9000), FVector(0, -24000, 3500)},
+		{TEXT("river_forest"), FVector(-60000, 15000, 14000), FVector(-30000, 80000, 500)},
 	};
 }
 

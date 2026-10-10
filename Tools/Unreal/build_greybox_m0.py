@@ -325,6 +325,8 @@ def build_part(backend, folder, part):
             px, py = cx + r * math.cos(angle), cy + r * math.sin(angle)
             if any(math.hypot(px - c["center"][0], py - c["center"][1]) < c["radius"] for c in clearings):
                 continue
+            if part.get("water_only") and ground(px, py) > -4.0:
+                continue  # lake rocks: only where the basin is underwater
             d = rng.uniform(*part["diameter"])
             h = rng.uniform(*part["height"])
             size = (d, d * rng.uniform(0.7, 1.0), h) if shape == "box" else (d, d, h)
