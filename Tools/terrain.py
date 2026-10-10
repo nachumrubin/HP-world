@@ -60,7 +60,7 @@ PADS = [
 ]
 
 LAKE_DEPTH = -22.0
-CLIFF_HEIGHT = 60.0
+CLIFF_HEIGHT = 100.0
 
 
 def _ns(xp):
