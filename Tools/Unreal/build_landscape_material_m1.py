@@ -88,6 +88,11 @@ def make_material():
     forest_mask = ramp(dist, scalar("ForestEdgeCm", 100000.0), scalar("ForestCoreCm", 60000.0))
     forest = color("ForestGround", (0.012, 0.04, 0.02))
 
+    # West side (negative Y, the Hogsmeade side) is dry golden hill country on the illustrated map.
+    wy = link(world, node(unreal.MaterialExpressionComponentMask, r=False, g=True, b=False, a=False), "")
+    west = ramp(wy, scalar("OchreStartCm", -60000.0), scalar("OchreFullCm", -220000.0))
+    grass = lerp(grass, color("GrassDry", (0.2, 0.15, 0.04)), west)
+
     base = lerp(grass, rock, rock_mask)
     base = lerp(base, forest, forest_mask)
     # snow settles on flatter high ground, not on near-vertical faces

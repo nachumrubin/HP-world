@@ -32,7 +32,7 @@
       "name": "Terrain",
       "parts": [
         {"type": "box", "label": "Ground", "terrain": true, "center": [0, 0], "base": -10, "size": [7000, 7000, 10], "material": "grass"},
-        {"type": "lake", "label": "BlackLake", "base": 0.05, "thickness": 0.2, "material": "water", "tags": ["Water"], "blobs": [[1005, -975, 432], [1245, -705, 360], [1050, -450, 288], [1245, -285, 198], [435, -990, 378], [-15, -945, 360], [-195, -585, 306], [-315, -195, 234], [-315, 165, 198], [-45, -285, 252]]},
+        {"type": "lake", "label": "BlackLake", "base": 0.05, "thickness": 0.2, "material": "water", "tags": ["Water"], "blobs": [[1005, -975, 432], [1245, -705, 360], [1050, -450, 288], [1245, -285, 198], [435, -990, 378], [-15, -945, 360], [-195, -585, 306], [-315, -195, 234], [-315, 165, 198], [-45, -285, 252], [-330, 330, 170], [-150, 345, 135]]},
         {"type": "cone", "label": "LakeIsland", "terrain": true, "center": [21, -819], "base": 0, "diameter": 60, "height": 12, "material": "rock"},
         {"type": "scatter", "label": "LakeRock", "shape": "cone", "center": [-100, -600], "radius": 420, "count": 16, "seed": 21, "diameter": [14, 34], "height": [25, 30], "material": "rock", "collision": false, "water_only": true},
         {"type": "scatter", "label": "ShoreBoulder", "shape": "sphere", "center": [500, -550], "radius": 1000, "count": 260, "seed": 31, "diameter": [3, 10], "height": [2, 6], "material": "rock", "collision": false, "ground_range": [-0.6, 2.0]}
