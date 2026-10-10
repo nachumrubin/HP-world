@@ -12,4 +12,16 @@ class HPWORLD_API AHPFlightGameMode : public AGameModeBase
 
 public:
 	AHPFlightGameMode();
+
+	virtual void BeginPlay() override;
+
+private:
+	/** `-HPShots` on the command line: fly a fixed camera through the readability viewpoints, save screenshots and quit. */
+	void StartScreenshotRun();
+	void NextScreenshot();
+
+	FTimerHandle ShotTimer;
+	TWeakObjectPtr<class ACameraActor> ShotCamera;
+	int32 ShotIndex = 0;
+	bool bShotPending = false;
 };
