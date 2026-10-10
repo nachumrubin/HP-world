@@ -104,7 +104,6 @@ void ABroomPawn::BeginPlay()
 	Super::BeginPlay();
 
 	StartTransform = GetActorTransform();
-	BroomMovement->AddTickPrerequisiteActor(this); // fly on this frame's input
 	BroomMovement->OnBroomImpact.AddDynamic(this, &ABroomPawn::HandleBroomImpact);
 
 	if (WindAudio->Sound)

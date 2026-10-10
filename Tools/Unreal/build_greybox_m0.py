@@ -98,6 +98,41 @@ class UnrealBackend:
         for name, rgb in materials.items():
             self.material_instances[name] = self._material(name, rgb)
 
+    def _water_material(self):
+        """Glossy water: low roughness so it mirrors the sky, with slow large-scale tint variation for depth."""
+        path = f"{MATERIAL_DIR}/M_Greybox_Water"
+        if unreal.EditorAssetLibrary.does_asset_exist(path):
+            return unreal.load_asset(path)
+        lib = unreal.MaterialEditingLibrary
+        mat = unreal.AssetToolsHelpers.get_asset_tools().create_asset("M_Greybox_Water", MATERIAL_DIR, unreal.Material, unreal.MaterialFactoryNew())
+        deep = lib.create_material_expression(mat, unreal.MaterialExpressionVectorParameter, -700, 0)
+        deep.set_editor_property("parameter_name", "Color")
+        deep.set_editor_property("default_value", unreal.LinearColor(0.02, 0.15, 0.18, 1.0))
+        shallow = lib.create_material_expression(mat, unreal.MaterialExpressionConstant3Vector, -700, 160)
+        shallow.set_editor_property("constant", unreal.LinearColor(0.05, 0.3, 0.3, 1.0))
+        pos = lib.create_material_expression(mat, unreal.MaterialExpressionWorldPosition, -900, 320)
+        noise = lib.create_material_expression(mat, unreal.MaterialExpressionNoise, -700, 320)
+        noise.set_editor_property("scale", 0.0006)
+        noise.set_editor_property("quality", 1)
+        noise.set_editor_property("levels", 3)
+        noise.set_editor_property("output_min", 0.0)
+        noise.set_editor_property("output_max", 1.0)
+        lib.connect_material_expressions(pos, "", noise, "Position")
+        mix = lib.create_material_expression(mat, unreal.MaterialExpressionLinearInterpolate, -450, 100)
+        lib.connect_material_expressions(deep, "", mix, "A")
+        lib.connect_material_expressions(shallow, "", mix, "B")
+        lib.connect_material_expressions(noise, "", mix, "Alpha")
+        rough = lib.create_material_expression(mat, unreal.MaterialExpressionConstant, -450, 300)
+        rough.set_editor_property("r", 0.06)
+        spec = lib.create_material_expression(mat, unreal.MaterialExpressionConstant, -450, 400)
+        spec.set_editor_property("r", 0.9)
+        lib.connect_material_property(mix, "", unreal.MaterialProperty.MP_BASE_COLOR)
+        lib.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+        lib.connect_material_property(spec, "", unreal.MaterialProperty.MP_SPECULAR)
+        lib.recompile_material(mat)
+        unreal.EditorAssetLibrary.save_loaded_asset(mat)
+        return mat
+
     def _parent_material(self):
         """Plain matte material with one Color parameter. The engine's BasicShapeMaterial renders far brighter than its Color."""
         path = f"{MATERIAL_DIR}/M_Greybox"
@@ -125,7 +160,7 @@ class UnrealBackend:
             mi = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
                 asset_name, MATERIAL_DIR, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
         lib = unreal.MaterialEditingLibrary
-        lib.set_material_instance_parent(mi, self._parent_material())
+        lib.set_material_instance_parent(mi, self._water_material() if name == "water" else self._parent_material())
         # The setter's bool return is unreliable across engine versions (False even when applied), so verify by reading back.
         color = unreal.LinearColor(rgb[0], rgb[1], rgb[2], 1.0)
         lib.set_material_instance_vector_parameter_value(mi, "Color", color)
