@@ -205,7 +205,7 @@ def make_height_function(layout):
         d = ((xp.abs(x) / half_x) ** 6 + (xp.abs(y) / half_y) ** 6) ** (1.0 / 6.0)
         width = 0.08 + 0.17 * smoothstep(-1.0, 1.0, x / half_x, xp)
         plateau = CLIFF_HEIGHT * (1.0 - smoothstep(1.0, 1.0 + width, d, xp))
-        crag = fbm(x, y, 30.0, 3, 51, xp) * 5.0 * smoothstep(0.7, 1.0, d, xp) * (1.0 - smoothstep(1.0, 1.3, d, xp))
+        crag = fbm(x, y, 40.0, 4, 51, xp) * 14.0 * smoothstep(0.7, 1.0, d, xp) * (1.0 - smoothstep(1.0, 1.3, d, xp))
         h = xp.where(plateau > 0.01, xp.maximum(h, plateau + crag * (plateau > 1.0)), h)
 
         # Flat pads under the buildings.
