@@ -325,6 +325,8 @@ def build_part(backend, folder, part):
             px, py = cx + r * math.cos(angle), cy + r * math.sin(angle)
             if any(math.hypot(px - c["center"][0], py - c["center"][1]) < c["radius"] for c in clearings):
                 continue
+            if "ground_range" in part and not part["ground_range"][0] <= ground(px, py) <= part["ground_range"][1]:
+                continue  # e.g. shore boulders only where the bank meets the water
             if part.get("water_only") and ground(px, py) > -4.0:
                 continue  # lake rocks: only where the basin is underwater
             d = rng.uniform(*part["diameter"])

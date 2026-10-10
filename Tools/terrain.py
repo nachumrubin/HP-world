@@ -165,17 +165,22 @@ def make_height_function(layout):
         hx, hy, hr = HOGSMEADE_HILL
         h = xp.maximum(h, dome(x, y, hx, hy, hr, HOGSMEADE_H + 2.0, xp))
 
-        # Mountains: the greybox cones, roughened with ridged noise.
-        ridge = 1.0 + 0.30 * fbm(x, y, 220.0, 4, 37, xp)
+        # Mountains: the greybox cones, made craggy: lopsided footprints, ridged noise and rough terraces.
+        ridge = 1.0 + 0.18 * fbm(x, y, 220.0, 4, 37, xp)
+        crag = 1.0 - xp.abs(fbm(x, y, 240.0, 4, 41, xp))
+        wobble = 1.0 + 0.22 * fbm(x, y, 400.0, 3, 59, xp)
         for mx, my, mr, mh in mountains:
-            t = xp.clip(1.0 - xp.hypot(x - mx, y - my) / mr, 0.0, 1.0)
-            h = xp.maximum(h, mh * (t ** 1.25) * ridge * smoothstep(0.0, 0.08, t, xp))
+            t = xp.clip(1.0 - xp.hypot(x - mx, y - my) / (mr * wobble), 0.0, 1.0)
+            m = mh * (t ** 1.15) * ridge * (0.7 + 0.35 * crag) * smoothstep(0.0, 0.08, t, xp)
+            m = 0.8 * m + 0.2 * xp.floor(m / 35.0) * 35.0
+            h = xp.maximum(h, xp.minimum(m, 750.0))
 
         # Black Lake basin with a soft bank, plus the island.
         rn = None  # normalised distance to the nearest lake circle: < 1 is inside the lake
         for bx, by, br in blobs:
             r_i = xp.hypot(x - bx, y - by) / br
             rn = r_i if rn is None else xp.minimum(rn, r_i)
+        rn = rn + 0.22 * (0.5 + 0.5 * fbm(x, y, 110.0, 3, 77, xp))  # ragged shoreline, always inside the water discs
         basin = 1.0 - smoothstep(0.55, 1.02, rn, xp)
         h = h * (1.0 - basin) + LAKE_DEPTH * basin
         ix, iy = island["center"]
