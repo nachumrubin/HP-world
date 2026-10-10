@@ -371,6 +371,8 @@ def build_part(backend, folder, part):
             r = part["radius"] * math.sqrt(rng.random())
             angle = rng.random() * 2 * math.pi
             px, py = cx + r * math.cos(angle), cy + r * math.sin(angle)
+            if part.get("ragged_edge") and r > part["radius"] * (0.72 + 0.28 * (0.5 + 0.5 * math.sin(5 * angle + 11.0 * part["seed"]) * math.cos(2 * angle + part["seed"]))):
+                continue  # ragged forest edge instead of a clean circle
             if any(math.hypot(px - c["center"][0], py - c["center"][1]) < c["radius"] for c in clearings):
                 continue
             if "ground_range" in part and not part["ground_range"][0] <= ground(px, py) <= part["ground_range"][1]:
