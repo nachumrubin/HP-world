@@ -98,6 +98,24 @@ class UnrealBackend:
         for name, rgb in materials.items():
             self.material_instances[name] = self._material(name, rgb)
 
+    def _parent_material(self):
+        """Plain matte material with one Color parameter. The engine's BasicShapeMaterial renders far brighter than its Color."""
+        path = f"{MATERIAL_DIR}/M_Greybox"
+        if unreal.EditorAssetLibrary.does_asset_exist(path):
+            return unreal.load_asset(path)
+        lib = unreal.MaterialEditingLibrary
+        mat = unreal.AssetToolsHelpers.get_asset_tools().create_asset("M_Greybox", MATERIAL_DIR, unreal.Material, unreal.MaterialFactoryNew())
+        color = lib.create_material_expression(mat, unreal.MaterialExpressionVectorParameter, -300, 0)
+        color.set_editor_property("parameter_name", "Color")
+        color.set_editor_property("default_value", unreal.LinearColor(0.5, 0.5, 0.5, 1.0))
+        rough = lib.create_material_expression(mat, unreal.MaterialExpressionConstant, -300, 200)
+        rough.set_editor_property("r", 0.85)
+        lib.connect_material_property(color, "", unreal.MaterialProperty.MP_BASE_COLOR)
+        lib.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+        lib.recompile_material(mat)
+        unreal.EditorAssetLibrary.save_loaded_asset(mat)
+        return mat
+
     def _material(self, name, rgb):
         asset_name = f"MI_Greybox_{name}"
         path = f"{MATERIAL_DIR}/{asset_name}"
@@ -107,7 +125,7 @@ class UnrealBackend:
             mi = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
                 asset_name, MATERIAL_DIR, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
         lib = unreal.MaterialEditingLibrary
-        lib.set_material_instance_parent(mi, unreal.load_asset("/Engine/BasicShapes/BasicShapeMaterial"))
+        lib.set_material_instance_parent(mi, self._parent_material())
         # The setter's bool return is unreliable across engine versions (False even when applied), so verify by reading back.
         color = unreal.LinearColor(rgb[0], rgb[1], rgb[2], 1.0)
         lib.set_material_instance_vector_parameter_value(mi, "Color", color)

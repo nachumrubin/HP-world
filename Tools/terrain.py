@@ -34,17 +34,20 @@ class _Scalar:
     hypot = staticmethod(math.hypot)
 
 
+PAD_H = 0.6  # building pads sit just above the lake surface (z=0) so they never read as shore or flood
+LAND_MIN = 1.0  # dry ground never dips below this outside the lake basin
+
 # Flat pads: (label, x, y, radius, blend, height). Buildings in the layout sit at z=0 (or on their own plinth), so the
 # ground is forced flat there, melting back into the rolling terrain over `blend` metres.
 PADS = [
-    ("QuidditchPitch", 975, -100, 130, 90, 0.0),
-    ("Hogsmeade", 1560, -2235, 230, 120, 0.0),
-    ("HogsmeadeStation", -450, -1365, 55, 60, 0.0),
-    ("HagridsHut", 650, 460, 30, 40, 0.0),
-    ("Greenhouses", 243, 500, 55, 50, 0.0),
-    ("StoneCircle", -250, 450, 32, 40, 0.0),
-    ("WhompingWillow", 503, 434, 24, 40, 0.0),
-    ("Gates", 1086, 80, 30, 50, 0.0),
+    ("QuidditchPitch", 975, -100, 130, 90, PAD_H),
+    ("Hogsmeade", 1560, -2235, 230, 120, PAD_H),
+    ("HogsmeadeStation", -450, -1365, 55, 60, PAD_H),
+    ("HagridsHut", 650, 460, 30, 40, PAD_H),
+    ("Greenhouses", 243, 500, 55, 50, PAD_H),
+    ("StoneCircle", -250, 450, 32, 40, PAD_H),
+    ("WhompingWillow", 503, 434, 24, 40, PAD_H),
+    ("Gates", 1086, 80, 30, 50, PAD_H),
     ("Boathouse", -272, 80, 17, 24, 0.5),  # a landing cut into the foot of the cliff
 ]
 
@@ -132,9 +135,9 @@ def make_height_function(layout):
         forest_dist = xp.hypot(x + 50.0, y - 1500.0)
         forest_w = 1.0 - smoothstep(500.0, 1100.0, forest_dist, xp)
         hills = fbm(x, y, 420.0, 4, 23, xp) * 7.0 * forest_w
-        valley = -9.0 * forest_w
+        valley = -1.0 * forest_w
         highland_rise = 45.0 * smoothstep(1800.0, 3300.0, r_center, xp)
-        h = rolling + hills + valley + highland_rise
+        h = xp.maximum(rolling + hills + valley, LAND_MIN) + highland_rise
 
         # Dome hills for the Owlery and the Shrieking Shack.
         for part in (owlery, shack):

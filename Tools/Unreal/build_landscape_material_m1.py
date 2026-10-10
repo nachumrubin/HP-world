@@ -68,7 +68,7 @@ def make_material():
     world = node(unreal.MaterialExpressionWorldPosition)
     z = link(world, node(unreal.MaterialExpressionComponentMask, r=False, g=False, b=True, a=False), "")
     snow_mask = ramp(z, scalar("SnowStartCm", 38000.0), scalar("SnowFullCm", 52000.0))
-    shore_mask = ramp(z, scalar("ShoreTopCm", 150.0), scalar("ShoreBottomCm", -100.0))
+    shore_mask = ramp(z, scalar("ShoreTopCm", 40.0), scalar("ShoreBottomCm", -100.0))
 
     # Large-scale grass variation so the plains don't read as one flat colour.
     noise = node(unreal.MaterialExpressionNoise, scale=0.00004, quality=1, levels=3, output_min=0.0, output_max=1.0,
@@ -79,7 +79,17 @@ def make_material():
     snow = color("Snow", (0.75, 0.78, 0.82))
     shore = color("Shore", (0.10, 0.075, 0.045))
 
+    # Forbidden Forest: the layout scatters trees around (-50 m, 1500 m) with radius 950 m (UE cm: X = north, Y = east).
+    # Far too few cones to read as a forest from the air, so the ground under them goes dark conifer green.
+    xy = link(world, node(unreal.MaterialExpressionComponentMask, r=True, g=True, b=False, a=False), "")
+    centre = node(unreal.MaterialExpressionConstant2Vector, r=-5000.0, g=150000.0)
+    dist = link(xy, node(unreal.MaterialExpressionDistance), "A")
+    link(centre, dist, "B")
+    forest_mask = ramp(dist, scalar("ForestEdgeCm", 100000.0), scalar("ForestCoreCm", 60000.0))
+    forest = color("ForestGround", (0.012, 0.04, 0.02))
+
     base = lerp(grass, rock, rock_mask)
+    base = lerp(base, forest, forest_mask)
     # snow settles on flatter high ground, not on near-vertical faces
     snow_amount = link(snow_mask, node(unreal.MaterialExpressionMultiply), "A")
     link(ramp(nz, scalar("SnowSlopeMax", 0.35), scalar("SnowSlopeFull", 0.7)), snow_amount, "B")
