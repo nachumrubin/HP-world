@@ -42,7 +42,7 @@ RIVER = [(-250.0, 1050.0), (-300.0, 800.0), (-340.0, 580.0), (-330.0, 440.0), (-
 RIVER_HALF_WIDTH = 8.0
 RIVER_BED = -2.0
 FOREST_X = (-1300.0, 1000.0)  # north-south extent of the Forbidden Forest band (the layout scatter circles follow it)
-FOREST_Y = 1300.0
+FOREST_Y = 1350.0
 LAND_MIN = 1.0  # dry ground never dips below this outside the lake basin
 
 # Flat pads: (label, x, y, radius, blend, height). Buildings in the layout sit at z=0 (or on their own plinth), so the
@@ -158,7 +158,7 @@ def make_height_function(layout):
         # Rolling Scottish ground: gentle everywhere, livelier in the forest valley and the highlands.
         rolling = 3.5 + fbm(x, y, 260.0, 4, 11, xp) * 2.5  # sits above the lake surface (z=0) everywhere on land
         forest_dist = xp.hypot(x - xp.clip(x, FOREST_X[0], FOREST_X[1]), y - FOREST_Y)  # the forest is a long band running north-south
-        forest_w = 1.0 - smoothstep(350.0, 800.0, forest_dist, xp)
+        forest_w = 1.0 - smoothstep(450.0, 1000.0, forest_dist, xp)
         hills = fbm(x, y, 420.0, 4, 23, xp) * 7.0 * forest_w
         valley = -1.0 * forest_w
         highland_rise = 45.0 * smoothstep(1800.0, 3300.0, r_center, xp)

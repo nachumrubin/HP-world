@@ -92,7 +92,7 @@ def make_material():
     wx = link(world, node(unreal.MaterialExpressionComponentMask, r=True, g=False, b=False, a=False), "")
     clamped = link(wx, node(unreal.MaterialExpressionClamp, min_default=-130000.0, max_default=100000.0), "")
     closest = link(clamped, node(unreal.MaterialExpressionAppendVector), "A")
-    link(node(unreal.MaterialExpressionConstant, r=130000.0), closest, "B")
+    link(node(unreal.MaterialExpressionConstant, r=135000.0), closest, "B")
     dist = link(xy, node(unreal.MaterialExpressionDistance), "A")
     link(closest, dist, "B")
     jag = link(noise, node(unreal.MaterialExpressionSubtract), "A")
@@ -101,7 +101,7 @@ def make_material():
     link(node(unreal.MaterialExpressionConstant, r=30000.0), jag_cm, "B")
     dist_j = link(dist, node(unreal.MaterialExpressionAdd), "A")
     link(jag_cm, dist_j, "B")
-    forest_mask = ramp(dist_j, scalar("ForestEdgeCm", 62000.0), scalar("ForestCoreCm", 40000.0))
+    forest_mask = ramp(dist_j, scalar("ForestEdgeCm", 85000.0), scalar("ForestCoreCm", 55000.0))
     forest = color("ForestGround", (0.012, 0.04, 0.02))
 
     # Roads (metres, X = north, Y = east): painted as packed earth. Tools/greybox_layout.json has no road parts; these are ground colour only.
