@@ -1,6 +1,7 @@
 #include "HPFlightGameMode.h"
 
 #include "BroomPawn.h"
+#include "BroomMovementComponent.h"
 #include "Camera/CameraActor.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
@@ -33,12 +34,14 @@ namespace
 
 AHPFlightGameMode::AHPFlightGameMode()
 {
+	PrimaryActorTick.bCanEverTick = true;
 	DefaultPawnClass = ABroomPawn::StaticClass();
 }
 
 void AHPFlightGameMode::BeginPlay()
 {
 	Super::BeginPlay();
+	bAutoFly = FParse::Param(FCommandLine::Get(), TEXT("HPAutoFly"));
 	if (FParse::Param(FCommandLine::Get(), TEXT("HPShots")))
 	{
 		StartScreenshotRun();
@@ -85,4 +88,70 @@ void AHPFlightGameMode::NextScreenshot()
 	PC->SetViewTarget(ShotCamera.Get());
 	bShotPending = true;
 	GetWorldTimerManager().SetTimer(ShotTimer, this, &AHPFlightGameMode::NextScreenshot, 15.0f, false);
+}
+
+namespace
+{
+	// Route in metres (X north, Y east, altitude above the lake surface): castle, lake skim, forest, Hogsmeade, station.
+	struct FWaypoint { double X, Y, Alt; };
+	const FWaypoint GRoute[] = {
+		{300, 100, 140}, {500, -500, 12}, {0, -900, 10}, {800, 1200, 90}, {1560, -2235, 120}, {-450, -1365, 80},
+	};
+}
+
+void AHPFlightGameMode::HandleImpact(float Severity, const FHitResult& Hit)
+{
+	++ImpactCount;
+	UE_LOG(LogTemp, Display, TEXT("HPFLY impact #%d severity %.2f with %s"), ImpactCount, Severity, *GetNameSafe(Hit.GetActor()));
+}
+
+void AHPFlightGameMode::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	if (!bAutoFly)
+	{
+		return;
+	}
+	APlayerController* PC = GetWorld()->GetFirstPlayerController();
+	ABroomPawn* Pawn = PC ? Cast<ABroomPawn>(PC->GetPawn()) : nullptr;
+	UBroomMovementComponent* Move = Pawn ? Pawn->FindComponentByClass<UBroomMovementComponent>() : nullptr;
+	if (!Move)
+	{
+		return;
+	}
+	if (!bImpactBound)
+	{
+		Move->OnBroomImpact.AddDynamic(this, &AHPFlightGameMode::HandleImpact);
+		bImpactBound = true;
+	}
+
+	AutoFlyTime += DeltaSeconds;
+	const FVector Loc = Pawn->GetActorLocation() / 100.0;
+	const FWaypoint& Target = GRoute[WaypointIndex];
+	const double Dx = Target.X - Loc.X, Dy = Target.Y - Loc.Y;
+	const double Dist = FMath::Sqrt(Dx * Dx + Dy * Dy);
+	if (Dist < 80.0)
+	{
+		UE_LOG(LogTemp, Display, TEXT("HPFLY reached waypoint %d at t=%.0fs"), WaypointIndex, AutoFlyTime);
+		WaypointIndex = (WaypointIndex + 1) % UE_ARRAY_COUNT(GRoute);
+	}
+
+	const double WantYaw = FMath::RadiansToDegrees(FMath::Atan2(Dy, Dx));
+	const double YawError = FMath::FindDeltaAngleDegrees(Pawn->GetActorRotation().Yaw, WantYaw);
+	const float Turn = FMath::Clamp(static_cast<float>(YawError / 35.0), -1.f, 1.f);
+	const float Pitch = FMath::Clamp(static_cast<float>((Target.Alt - Loc.Z) / 60.0), -1.f, 1.f);
+	Move->SetFlightInput(Pitch, Turn, 1.f, 0.f, false);
+
+	if (AutoFlyTime >= NextLogTime)
+	{
+		NextLogTime += 3.f;
+		UE_LOG(LogTemp, Display, TEXT("HPFLY t=%.0f wp=%d pos=(%.0f,%.0f,%.0f) dist=%.0f yawErr=%.0f speed=%.1f hover=%d skim=%d water=%d outside=%d impacts=%d"),
+			AutoFlyTime, WaypointIndex, Loc.X, Loc.Y, Loc.Z, Dist, YawError, Move->GetAirspeed(), Move->IsHovering(), Move->IsSkimming(),
+			Move->IsSkimmingWater(), Move->IsOutsideBoundary(), ImpactCount);
+	}
+	if (AutoFlyTime > 200.f)
+	{
+		UE_LOG(LogTemp, Display, TEXT("HPFLY done: %d impacts"), ImpactCount);
+		PC->ConsoleCommand(TEXT("quit"));
+	}
 }
