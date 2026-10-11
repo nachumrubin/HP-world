@@ -91,6 +91,10 @@ class DryRunBackend:
         for folder, _ in self.spawned:
             folders[folder] = folders.get(folder, 0) + 1
         print(f"Dry run: {len(self.spawned)} actors for {self.map_path}")
+        if os.environ.get("HPW_VERBOSE"):
+            for _, line in self.spawned:
+                if "instances" in line:
+                    print("  " + line)
         for folder, count in sorted(folders.items()):
             print(f"  {folder:<32} {count:>5}")
 

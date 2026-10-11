@@ -5,6 +5,7 @@ Keeps POSITION, NORMAL and TEXCOORD_0 only.
 
     python Tools/merge_glb.py in.glb out.glb          # everything as one mesh
     python Tools/merge_glb.py in.glb out.glb --split  # one mesh per mesh-bearing node, each recentred on its own (for packs of separate plants)
+    python Tools/merge_glb.py in.glb out.glb --pair-parents  # one mesh per pair of sibling parents (a trunk node and its foliage node), keeping both materials
 """
 
 import json
@@ -38,7 +39,7 @@ def local_matrix(node):
     return matrix
 
 
-def main(src, dst, split=False):
+def main(src, dst, split=False, pair_parents=False):
     data = open(src, "rb").read()
     json_len = struct.unpack("<I", data[12:16])[0]
     gltf = json.loads(data[20:20 + json_len])
@@ -70,6 +71,19 @@ def main(src, dst, split=False):
     for root in gltf["scenes"][gltf.get("scene", 0)]["nodes"]:
         walk(root, np.eye(4))
 
+    parent = {}
+    for index, node in enumerate(gltf["nodes"]):
+        for child in node.get("children", []):
+            parent[child] = index
+
+    def group_of(index):
+        if split:
+            return index
+        if pair_parents:  # the parent's position among its siblings, two parents per tree
+            p = parent[index]
+            return gltf["nodes"][parent[p]]["children"].index(p) // 2
+        return 0
+
     parts = {}  # (group, material index) -> lists
     for index, matrix in world.items():
         mesh_index = gltf["nodes"][index].get("mesh")
@@ -90,7 +104,7 @@ def main(src, dst, split=False):
             idx = read(prim["indices"]).reshape(-1).astype(np.int64) if "indices" in prim else np.arange(len(pos))
             if flip:
                 idx = idx.reshape(-1, 3)[:, ::-1].reshape(-1)
-            bucket = parts.setdefault((index if split else 0, prim.get("material", -1)), {"pos": [], "nrm": [], "uv": [], "idx": [], "base": 0})
+            bucket = parts.setdefault((group_of(index), prim.get("material", -1)), {"pos": [], "nrm": [], "uv": [], "idx": [], "base": 0})
             bucket["pos"].append(pos)
             bucket["nrm"].append(nrm)
             bucket["uv"].append(uv)
@@ -165,4 +179,4 @@ def main(src, dst, split=False):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2], "--split" in sys.argv)
+    main(sys.argv[1], sys.argv[2], "--split" in sys.argv, "--pair-parents" in sys.argv)

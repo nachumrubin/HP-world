@@ -57,3 +57,11 @@ Pines and roots (Creative Commons Attribution 4.0, from Sketchfab, in SourceAsse
 
 - "Pine Tree Trio - Free Download" by Laurie Annis (https://sketchfab.com/laurieannis): the giant pines that wall in and shade the forest.
 - "Sacred Tree Roots" by stuff scanner (https://sketchfab.com/boypuff): the root mounds in the forest.
+
+Shore, slope and boulder models (from Sketchfab, in SourceAssets/Enchanted):
+
+- "Mighty Oak Trees" by Jagobo (https://sketchfab.com/Jagobo), CC BY 4.0: the oaks on the wooded slopes and the lake shore.
+- "Reeds low poly" by daniel.2U (https://sketchfab.com/daniel.2U), CC BY 4.0: cattails in the shallows.
+- "Mossy Beach Boulder Photoscan" by EFX (https://sketchfab.com/evan4129), CC BY 4.0, and "Mossy boulders" by Florian Stephens (https://sketchfab.com/florianstephens), CC BY 4.0: shore boulders.
+- "Rock Table" by flschroeter (https://sketchfab.com/flschroeter), **CC BY-NC-SA 4.0** (non-commercial, share-alike): shore boulders. Remove it before any commercial release.
+- "grass" by Georgeous (https://sketchfab.com/intice184) is under Sketchfab's standard licence, which does not allow redistribution, so it is kept out of the repository (see .gitignore); the level skips it if it is missing.

@@ -69,8 +69,8 @@ VALLEY_KEEPOUTS = [  # (x, y, radius, feather): no wall inside the radius, full 
     (0.0, 0.0, 250.0, 200.0),           # the castle's own grounds: the range rises right behind its crag
 ]
 VALLEY_PAD_FEATHER = 260.0
-MASSIF = (-60.0, 1050.0, 950.0, 460.0)  # centre x, y, radius and peak height of the mountain behind the castle
-FOREST_WALL_SCALE = 0.55   # the forest floor sits on gentler foothills than the bare ranges
+MASSIF = (-150.0, 560.0, 620.0, 620.0)  # centre x, y, radius and peak height of the mountain behind the castle
+FOREST_FLAT = (-1900.0, 1600.0, 780.0, 1980.0, 420.0)  # the Forbidden Forest basin: x0, x1, y0, y1 and the feather (m) over which the ground blends back to the ranges
 
 LAKE_DEPTH = -22.0
 CLIFF_HEIGHT = 100.0
@@ -210,11 +210,17 @@ def make_height_function(layout):
         crest = VALLEY_PEAK[0] + (VALLEY_PEAK[1] - VALLEY_PEAK[0]) * (0.5 + 0.5 * fbm(x, y, 1700.0, 3, 83, xp))
         spine = 1.0 - xp.abs(fbm(x, y, 950.0, 4, 89, xp))  # ridged: sharp crest lines
         wall = crest * (wall_s ** 1.25) * (0.6 + 0.5 * spine) * (1.0 + 0.07 * fbm(x, y, 160.0, 3, 97, xp)) * keep
-        wall = wall * (1.0 - (1.0 - FOREST_WALL_SCALE) * forest_w)
         h = xp.maximum(h, xp.minimum(wall, 700.0))
         # The mountain behind the castle: Hogwarts sits on the cliff at its foot, as in the films.
         massif = dome(x, y, MASSIF[0], MASSIF[1], MASSIF[2], MASSIF[3], xp) * (0.7 + 0.45 * spine) * keep
         h = xp.maximum(h, xp.minimum(massif, 700.0))
+
+        # The Forbidden Forest basin is flat (a gentle swell only): everything above is levelled out inside it and blended back over the feather.
+        fx0, fx1, fy0, fy1, ff = FOREST_FLAT
+        wx, wy = x + 260.0 * fbm(x, y, 800.0, 2, 5, xp), y + 260.0 * fbm(x, y, 800.0, 2, 6, xp)  # warped, so the basin is not a rectangle
+        outside = xp.hypot(xp.maximum(xp.maximum(fx0 - wx, wx - fx1), 0.0), xp.maximum(xp.maximum(fy0 - wy, wy - fy1), 0.0))
+        flat = 1.0 - smoothstep(0.0, ff, outside, xp)
+        h = h * (1.0 - flat) + (4.5 + 1.8 * fbm(x, y, 280.0, 3, 23, xp)) * flat
 
         # Black Lake basin with a soft bank, plus the island.
         rn = None  # normalised distance to the nearest lake circle: < 1 is inside the lake

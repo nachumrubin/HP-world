@@ -26,3 +26,9 @@ Tests/**/build/
 # Generated terrain data (rebuild with Tools/make_heightmap.py)
 Tools/generated/
 __pycache__/
+
+# Raw Sketchfab downloads, and a model whose licence does not allow redistribution (see docs/CREDITS.md)
+/sketchfab/
+/SourceAssets/Enchanted/grass_tuft.glb
+/Content/HPW/Enchanted/grass_tuft/
+/Content/HPW/Enchanted/Materials/M_Ench_grass_tuft_*
