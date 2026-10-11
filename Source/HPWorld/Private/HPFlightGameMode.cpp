@@ -99,7 +99,7 @@ namespace
 	// Route in metres (X north, Y east, altitude above the lake surface): castle, lake skim, forest, Hogsmeade, station.
 	struct FWaypoint { double X, Y, Alt; };
 	const FWaypoint GRoute[] = {
-		{0, 0, 140}, {500, -500, 12}, {0, -900, 10}, {800, 1200, 90}, {1560, -2235, 120}, {-450, -1365, 80},
+		{300, 100, 140}, {500, -500, 12}, {0, -900, 10}, {800, 1200, 90}, {1560, -2235, 120}, {-450, -1365, 80},
 	};
 }
 
