@@ -29,6 +29,8 @@ namespace
 		{TEXT("station_train"), FVector(-10000, -120000, 12000), FVector(-38000, -156000, 3500)},
 		{TEXT("lake_waterfall"), FVector(-20000, -90000, 9000), FVector(0, -24000, 3500)},
 		{TEXT("river_forest"), FVector(-60000, 15000, 14000), FVector(-30000, 80000, 500)},
+		{TEXT("forest_close"), FVector(-20000, 62000, 5500), FVector(-20000, 72000, 2500)},
+		{TEXT("pitch_close"), FVector(94500, -34000, 9000), FVector(94500, -10000, 1500)},
 		{TEXT("castle_top"), FVector(100, 100, 90000), FVector(0, 0, 12000)},
 		{TEXT("castle_north"), FVector(75000, 0, 30000), FVector(0, 0, 14000)},
 		{TEXT("castle_east"), FVector(0, 75000, 30000), FVector(0, 0, 14000)},
