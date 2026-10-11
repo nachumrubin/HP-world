@@ -20,3 +20,11 @@ Source file: `SourceAssets/Quidditch/quidditch_pitch.glb`, imported to `/Game/HP
 Kenney Nature Kit (https://kenney.nl/assets/nature-kit) by Kenney (https://www.kenney.nl) is Creative Commons Zero (CC0).
 Crediting is not required but appreciated. 22 models are kept in `SourceAssets/Kenney/nature` (licence text in
 `SourceAssets/Kenney/LICENSE.txt`) and imported to `/Game/HPW/Forest` by `Tools/Unreal/import_forest_m2.py`.
+
+## Cliff scan
+
+"Cliff Face V2" (https://sketchfab.com/3d-models/cliff-face-v2-2c744dd10d0341a685276d3f1f3849eb) by James Tubbritt
+(https://sketchfab.com/myvirtualworld) is licensed under Creative Commons Attribution 4.0 (http://creativecommons.org/licenses/by/4.0/).
+
+Source file: `SourceAssets/Cliff/cliff_face_v2.glb` (`cliff_face_v2_baked.glb` is made from it by `Tools/bake_glb.py`), imported to `/Game/HPW/Cliff`
+by `Tools/Unreal/import_cliff_m2.py` and tiled over the castle crag.

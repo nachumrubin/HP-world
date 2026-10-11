@@ -61,6 +61,10 @@ class DryRunBackend:
         assert all(s > 0 for s in scale_m), f"non-positive size on {label}: {scale_m}"
         self.spawned.append((folder, label))
 
+    def instanced_chunks(self, label, folder, mesh_folder, placements, collision):
+        assert placements is not None
+        self.spawned.append((folder, f"{label}: {len(placements)} cladding chunks"))
+
     def instanced_meshes(self, label, folder, groups, collision, cull_distance_m):
         assert groups is not None
         self.spawned.append((folder, f"{label}: {sum(len(v) for v in groups.values())} instances of {len(groups)} models"))
@@ -228,6 +232,29 @@ class UnrealBackend:
                 cache[key] = (mesh, mesh.get_bounds().box_extent.z * 2.0)
         return cache[key]
 
+    def instanced_chunks(self, label, folder, mesh_folder, placements, collision):
+        """Instances every mesh in mesh_folder at each placement (the parts of one scanned chunk share an origin)."""
+        disk = os.path.join(unreal.SystemLibrary.get_project_directory(), "Content", mesh_folder[len("/Game/"):])
+        names = sorted(f[:-len(".uasset")] for f in os.listdir(disk) if f.endswith(".uasset"))
+        blueprint_class = self._instance_blueprint().generated_class()
+        transforms = []
+        for x, y, z, tangent, normal, scale in placements:
+            rotation = unreal.MathLibrary.make_rot_from_xz(unreal.Vector(*tangent), unreal.Vector(*normal))
+            transforms.append(unreal.Transform(unreal.Vector(x * M_TO_CM, y * M_TO_CM, z * M_TO_CM), rotation, unreal.Vector(*scale)))
+        for name in names:
+            mesh = unreal.load_asset(f"{mesh_folder}/{name}")
+            if mesh is None or not transforms:
+                continue
+            actor = self.actors.spawn_actor_from_class(blueprint_class, unreal.Vector(0, 0, 0))
+            component = actor.get_component_by_class(unreal.HierarchicalInstancedStaticMeshComponent)
+            component.set_static_mesh(mesh)
+            component.add_instances(transforms, False)
+            if not collision:
+                component.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+            actor.set_actor_label(f"{label}_{name}")
+            actor.set_folder_path(f"Greybox/{folder}")
+            self._tag(actor, [])
+
     def instanced_meshes(self, label, folder, groups, collision, cull_distance_m):
         """groups: {model name: [(x_m, y_m, ground_z_m, yaw_deg, height_m), ...]}; one instanced-mesh actor per model."""
         blueprint_class = self._instance_blueprint().generated_class()
@@ -372,6 +399,59 @@ def scatter_ok(part, clearings, px, py, r, angle):
     return True
 
 
+def cladding_placements(part):
+    """Where to put the scanned cliff chunks so they cover the cliff face of the castle crag.
+
+    For each height level the terrain contour is traced with rays from the centre; chunks are spaced evenly along it, tilted to the local slope
+    (their relief points out of the slope, their long axis runs along the contour) and sunk part_sink metres into the ground.
+    Returns [(x_m, y_m, z_m, tangent, normal, (sx, sy, sz))].
+    """
+    rng = random.Random(part["seed"])
+    cx, cy = part["center"]
+    spacing = part["face_width_m"] * part.get("overlap", 0.8)
+    scale, depth, sink = part["scale"], part["depth_scale"], part["sink_m"]
+    placements = []
+    for row, level in enumerate(part["levels_m"]):
+        contour = []
+        for i in range(720):
+            theta = 2 * math.pi * i / 720
+            dx, dy = math.cos(theta), math.sin(theta)
+            for r in range(20, 450):
+                if ground(cx + r * dx, cy + r * dy) < level:
+                    contour.append((theta, cx + r * dx, cy + r * dy))
+                    break
+        lengths = [math.hypot(contour[(i + 1) % len(contour)][1] - contour[i][1], contour[(i + 1) % len(contour)][2] - contour[i][2])
+                   for i in range(len(contour))]
+        total = sum(lengths)
+        count = max(1, round(total / spacing))
+        walked, k = 0.0, 0
+        for i, length in enumerate(lengths):
+            while k < count and walked + length >= (k + 0.5 + 0.5 * (row % 2) + rng.uniform(-0.2, 0.2)) * total / count:
+                theta, x, y = contour[i]
+                k += 1
+                if any(abs((math.degrees(theta) - c + 180) % 360 - 180) < w for c, w in part.get("skip_arcs", [])):
+                    continue  # e.g. leave the waterfall column bare
+                step = 2.0
+                hx = (ground(x + step, y) - ground(x - step, y)) / (2 * step)
+                hy = (ground(x, y + step) - ground(x, y - step)) / (2 * step)
+                norm = math.sqrt(hx * hx + hy * hy + 1.0)
+                n = (-hx / norm, -hy / norm, 1.0 / norm)  # outward and up
+                t = (-n[1], n[0], 0.0)
+                t_len = math.hypot(t[0], t[1]) or 1.0
+                t = (t[0] / t_len, t[1] / t_len, 0.0)
+                # Break up the tiling: random quarter turn about the outward axis, scale and burial depth, rows staggered above.
+                y_axis = (n[1] * t[2] - n[2] * t[1], n[2] * t[0] - n[0] * t[2], n[0] * t[1] - n[1] * t[0])
+                turn = rng.choice([0, 90, 180, 270])
+                c, s_ = math.cos(math.radians(turn)), math.sin(math.radians(turn))
+                t = tuple(c * t[i] + s_ * y_axis[i] for i in range(3))
+                size = rng.uniform(0.85, 1.25)
+                dig = sink * rng.uniform(0.5, 1.5)
+                z = level + rng.uniform(-5.0, 5.0)
+                placements.append((x - dig * n[0], y - dig * n[1], z - dig * n[2], t, n, (scale * size, scale * size, scale * size * depth)))
+            walked += length
+    return placements
+
+
 def build_part(backend, folder, part):
     kind = part["type"]
     label = part["label"]
@@ -497,6 +577,9 @@ def build_part(backend, folder, part):
             placed += 1
             backend.shape(shape, f"{label}{placed}", folder, (px, py, base + ground(px, py) + h / 2), size, (0, rng.uniform(0, 360), 0),
                           material, tags, collision)
+
+    elif kind == "cladding":
+        backend.instanced_chunks(label, folder, part["mesh_folder"], cladding_placements(part), collision)
 
     elif kind == "tree_scatter":
         # Real tree models as instances: one instanced-mesh actor per model, not one actor per tree.
