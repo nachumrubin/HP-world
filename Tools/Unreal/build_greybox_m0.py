@@ -63,7 +63,7 @@ class DryRunBackend:
 
     def castle_model(self, placement):
         assert placement["scale"] > 0
-        self.spawned.append(("Hogwarts Castle", f"model x{placement['count']} scale {placement['scale']:.5f}"))
+        self.spawned.append((placement["name"], f"model scale {placement['scale']:.5f}"))
 
     def landscape(self, material):
         assert material in self.materials, material
@@ -192,27 +192,38 @@ class UnrealBackend:
             component.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
 
     def castle_model(self, placement):
-        """Places the imported Hogwarts model (24 static meshes sharing one origin) as one castle."""
-        material = self.material_instances[placement["material"]]
+        """Places an imported model (many static meshes sharing one origin) as one object.
+
+        The meshes are the .uasset files in placement["folder"] (or Object_<first>..<first+count-1> when "first" is given).
+        A material of None keeps the model's own materials.
+        """
+        material = self.material_instances[placement["material"]] if placement["material"] else None
         location = unreal.Vector(*(c * M_TO_CM for c in placement["location_m"]))
         rotation = unreal.Rotator(roll=0, pitch=0, yaw=placement["yaw"])
-        for i in range(placement["first"], placement["first"] + placement["count"]):
-            mesh = unreal.load_asset(f"{placement['folder']}/Object_{i}")
+        folder = placement["folder"]
+        if placement.get("first") is not None:
+            names = [f"Object_{i}" for i in range(placement["first"], placement["first"] + placement["count"])]
+        else:
+            disk = os.path.join(unreal.SystemLibrary.get_project_directory(), "Content", folder[len("/Game/"):])
+            names = sorted(f[:-len(".uasset")] for f in os.listdir(disk) if f.endswith(".uasset"))
+        for index, name in enumerate(names):
+            mesh = unreal.load_asset(f"{folder}/{name}")
             if mesh is None:
-                unreal.log_warning(f"Greybox: castle mesh Object_{i} is missing; run Tools/Unreal/import_castle_m2.py")
+                unreal.log_warning(f"Greybox: model mesh {name} is missing in {folder}")
                 continue
             body = mesh.get_editor_property("body_setup")
             if body.get_editor_property("collision_trace_flag") != unreal.CollisionTraceFlag.CTF_USE_COMPLEX_AS_SIMPLE:
                 body.set_editor_property("collision_trace_flag", unreal.CollisionTraceFlag.CTF_USE_COMPLEX_AS_SIMPLE)
-                unreal.EditorAssetLibrary.save_loaded_asset(mesh)  # so the broom collides with the real walls and towers
+                unreal.EditorAssetLibrary.save_loaded_asset(mesh)  # so the broom collides with the real geometry
             actor = self.actors.spawn_actor_from_class(unreal.StaticMeshActor, location, rotation)
             actor.static_mesh_component.set_static_mesh(mesh)
             actor.set_actor_scale3d(unreal.Vector(placement["scale"], placement["scale"], placement["scale"]))
-            actor.set_actor_label(f"CastleModel_{i}")
-            actor.set_folder_path("Greybox/Hogwarts Castle")
+            actor.set_actor_label(f"{placement['name']}_{index}")
+            actor.set_folder_path(f"Greybox/{placement['name']}")
             self._tag(actor, [])
-            for slot in range(actor.static_mesh_component.get_num_materials()):
-                actor.static_mesh_component.set_material(slot, material)
+            if material is not None:
+                for slot in range(actor.static_mesh_component.get_num_materials()):
+                    actor.static_mesh_component.set_material(slot, material)
 
     def landscape(self, material):
         for actor in self.actors.get_all_level_actors():
@@ -441,8 +452,8 @@ def castle_placement(cfg):
     rx, ry = cx * math.cos(yaw) - cy * math.sin(yaw), cx * math.sin(yaw) + cy * math.cos(yaw)
     tx, ty = cfg["target_center_m"]
     location = ((tx * M_TO_CM - rx) / M_TO_CM, (ty * M_TO_CM - ry) / M_TO_CM, cfg["base_z_m"] - lo_z * scale / M_TO_CM)
-    return {"scale": scale, "location_m": location, "yaw": cfg.get("yaw", 0.0), "folder": cfg["folder"], "first": cfg["first"],
-            "count": cfg["count"], "material": cfg["material"]}
+    return {"scale": scale, "location_m": location, "yaw": cfg.get("yaw", 0.0), "folder": cfg["folder"], "first": cfg.get("first"),
+            "count": cfg.get("count", 0), "material": cfg.get("material"), "name": cfg.get("name", "Model")}
 
 
 def build(backend, layout):
@@ -454,7 +465,7 @@ def build(backend, layout):
         GROUND_HEIGHT = terrain.make_height_function(layout)
     backend.begin(layout["map_path"], layout["materials"])
     zones = layout["zones"]
-    castle_model = layout.get("castle_model", {}).get("enabled", False)
+    models = {key: layout[key] for key in ("castle_model", "pitch_model") if layout.get(key, {}).get("enabled")}
     task = unreal.ScopedSlowTask(len(zones), "Building Hogwarts greybox...") if unreal else None
     if task:
         task.make_dialog(True)
@@ -462,13 +473,13 @@ def build(backend, layout):
         if task:
             task.enter_progress_frame(1, f"Building {zone['name']}...")
         for part in zone["parts"]:
-            if castle_model and part.get("greybox_castle"):
+            if part.get("replaced_by") in models:
                 continue  # replaced by the imported castle model
             if landscape and part.get("terrain"):
                 continue  # the Landscape provides this ground, hill or mountain
             build_part(backend, zone["name"], part)
-    if castle_model:
-        backend.castle_model(castle_placement(layout["castle_model"]))
+    for cfg in models.values():
+        backend.castle_model(castle_placement(cfg))
     if landscape:
         backend.landscape("grass")
     backend.lighting()
