@@ -456,8 +456,14 @@ def forest_depth(part, py):
 
 def scatter_ok(part, clearings, px, py, r, angle):
     """Shared placement filter for scatter and tree_scatter parts: ragged edge, clearings, ground height range, water only."""
-    if part.get("ragged_edge") and r > part["radius"] * (0.72 + 0.28 * (0.5 + 0.5 * math.sin(5 * angle + 11.0 * part["seed"]) * math.cos(2 * angle + part["seed"]))):
-        return False  # ragged forest edge instead of a clean circle
+    if part.get("ragged_edge"):
+        limit = part["radius"] * (0.72 + 0.28 * (0.5 + 0.5 * math.sin(5 * angle + 11.0 * part["seed"]) * math.cos(2 * angle + part["seed"])))
+        if r > limit:
+            return False  # ragged forest edge instead of a clean circle
+        if r < limit * part.get("min_edge_frac", 0.0):
+            return False  # a wall of trees only along the outer rim
+    if any(math.hypot(px - cx, py - cy) < rad for cx, cy, rad in part.get("inside_others", [])):
+        return False  # the rim of one overlapping circle that lies inside another is not the forest's outside
     if any(math.hypot(px - c["center"][0], py - c["center"][1]) < c["radius"] for c in clearings):
         return False
     for path, clearance in part.get("avoid_paths", []):
