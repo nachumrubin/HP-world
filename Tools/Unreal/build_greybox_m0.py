@@ -205,6 +205,8 @@ class UnrealBackend:
         self._tag(actor, tags)
         component = actor.static_mesh_component
         component.set_material(0, self.material_instances[material])
+        if material == "mist":
+            component.set_editor_property("translucency_sort_priority", 10)  # draw after the water tiles, or the sheet is hidden wherever a tile is nearer
         if not collision:
             component.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
 
@@ -481,6 +483,39 @@ def forest_depth(part, py):
     return max(0.0, min(1.0, (py - y0) / (y1 - y0)))
 
 
+_SHORE_GRIDS = {}
+
+
+def shore_grid(bbox, cell):
+    """([[ground height m]] indexed [ix][iy], [[distance to water m]], cell) over bbox = [x0, x1, y0, y1]; water is ground below 0.3 m."""
+    key = (tuple(bbox), cell)
+    if key not in _SHORE_GRIDS:
+        x0, x1, y0, y1 = bbox
+        nx, ny = int((x1 - x0) / cell), int((y1 - y0) / cell)
+        heights = [[ground(x0 + (i + 0.5) * cell, y0 + (j + 0.5) * cell) for j in range(ny)] for i in range(nx)]
+        far = 1e9
+        dist = [[0.0 if heights[i][j] < 0.3 else far for j in range(ny)] for i in range(nx)]
+        diag = cell * 1.4142
+        for i in range(nx):  # two-pass chamfer distance transform
+            for j in range(ny):
+                d = dist[i][j]
+                for di, dj, w in ((-1, 0, cell), (0, -1, cell), (-1, -1, diag), (-1, 1, diag)):
+                    a, b = i + di, j + dj
+                    if 0 <= a < nx and 0 <= b < ny and dist[a][b] + w < d:
+                        d = dist[a][b] + w
+                dist[i][j] = d
+        for i in range(nx - 1, -1, -1):
+            for j in range(ny - 1, -1, -1):
+                d = dist[i][j]
+                for di, dj, w in ((1, 0, cell), (0, 1, cell), (1, 1, diag), (1, -1, diag)):
+                    a, b = i + di, j + dj
+                    if 0 <= a < nx and 0 <= b < ny and dist[a][b] + w < d:
+                        d = dist[a][b] + w
+                dist[i][j] = d
+        _SHORE_GRIDS[key] = (heights, dist, cell)
+    return _SHORE_GRIDS[key]
+
+
 def scatter_ok(part, clearings, px, py, r, angle):
     """Shared placement filter for scatter and tree_scatter parts: ragged edge, clearings, ground height range, water only."""
     if part.get("ragged_edge"):
@@ -752,6 +787,34 @@ def build_part(backend, folder, part):
             height = rng.uniform(*choice["height_m"])
             groups.setdefault(choice["mesh"], []).append((px, py, base + ground(px, py) - part.get("sink", 0.0) * height, rng.uniform(0, 360), height))
             placed += 1
+        backend.instanced_meshes(label, folder, groups, collision, part.get("cull_distance_m"))
+
+    elif kind == "shore_scatter":
+        # Reeds, boulders, moss and trees along the lake shore. A grid over the lake gives each cell its ground height and its distance to the nearest
+        # water; each mesh entry takes the cells whose height ("z_range", m) and distance to water ("water_dist_m") fit, keeps a fraction ("keep") of them
+        # and places one instance at a random spot in the cell.
+        rng = random.Random(part["seed"])
+        heights, water_dist, cell = shore_grid(part["bbox"], part["cell_m"])
+        x0, _, y0, _ = part["bbox"]
+        groups = {}
+        for m in part["meshes"]:
+            lo, hi = m["z_range"]
+            dlo, dhi = m.get("water_dist_m", [0.0, 1e9])
+            for ix, column in enumerate(heights):
+                for iy, z in enumerate(column):
+                    if not lo <= z <= hi or not dlo <= water_dist[ix][iy] <= dhi or rng.random() > m["keep"]:
+                        continue
+                    px, py = x0 + (ix + rng.random()) * cell, y0 + (iy + rng.random()) * cell
+                    pz = ground(px, py)
+                    if not lo <= pz <= hi or any(math.hypot(px - cx, py - cy) < r for cx, cy, r in part.get("avoid", [])):
+                        continue
+                    if any(distance_to_polyline(px, py, path) < clearance for path, clearance in part.get("avoid_paths", [])):
+                        continue
+                    if "max_slope" in m:
+                        step = 4.0
+                        if math.hypot((ground(px + step, py) - ground(px - step, py)) / (2 * step), (ground(px, py + step) - ground(px, py - step)) / (2 * step)) > m["max_slope"]:
+                            continue  # too steep for trees
+                    groups.setdefault(m["mesh"], []).append((px, py, base + pz - m.get("sink", 0.0) * m["height_m"][1], rng.uniform(0, 360), rng.uniform(*m["height_m"])))
         backend.instanced_meshes(label, folder, groups, collision, part.get("cull_distance_m"))
 
     elif kind == "placed_models":

@@ -75,7 +75,15 @@ def make_material():
     world = node(unreal.MaterialExpressionWorldPosition)
     z = link(world, node(unreal.MaterialExpressionComponentMask, r=False, g=False, b=True, a=False), "")
     snow_mask = ramp(z, scalar("SnowStartCm", 38000.0), scalar("SnowFullCm", 52000.0))
-    shore_mask = ramp(z, scalar("ShoreTopCm", 40.0), scalar("ShoreBottomCm", -100.0))
+    # The shore: the lake bank below about 3 m goes dark pebbles and mud instead of lawn; the noise breaks the line up.
+    wobble_noise = node(unreal.MaterialExpressionNoise, scale=0.0012, quality=1, levels=3, output_min=-1.0, output_max=1.0, turbulence=False)
+    link(world, wobble_noise, "Position")
+    wobble = link(wobble_noise, node(unreal.MaterialExpressionMultiply), "A")
+    link(node(unreal.MaterialExpressionConstant, r=70.0), wobble, "B")
+    z_wobbly = link(z, node(unreal.MaterialExpressionAdd), "A")
+    link(wobble, z_wobbly, "B")
+    shore_mask = ramp(z_wobbly, scalar("ShoreTopCm", 330.0), scalar("ShoreBottomCm", 40.0))
+    wet_mask = ramp(z_wobbly, scalar("WetTopCm", 130.0), scalar("WetBottomCm", 15.0))
 
     # Large-scale grass variation so the plains don't read as one flat colour.
     noise = node(unreal.MaterialExpressionNoise, scale=0.00004, quality=1, levels=3, output_min=0.0, output_max=1.0,
@@ -92,7 +100,9 @@ def make_material():
     rock_mix = lerp(rock_noise, band, node(unreal.MaterialExpressionConstant, r=0.35))
     rock = lerp(color("RockDark", (0.045, 0.04, 0.035)), color("RockLight", (0.17, 0.15, 0.125)), rock_mix)
     snow = color("Snow", (0.75, 0.78, 0.82))
-    shore = color("Shore", (0.10, 0.075, 0.045))
+    mud = color("ShoreMud", (0.011, 0.011, 0.008))
+    shore = lerp(mud, color("ShorePebble", (0.07, 0.064, 0.054)), lerp(rock_noise, noise, node(unreal.MaterialExpressionConstant, r=0.3)))
+    shore = lerp(shore, mud, wet_mask)  # wet dark mud right at the water line
 
     # Forbidden Forest: a band running north-south (layout ForestTree circles, centre line Y = 1300 m, X from -1300 to 1000 m).
     # Far too few cones to read as a forest from the air, so the ground under them goes dark conifer green.
@@ -150,7 +160,16 @@ def make_material():
     west = ramp(wy, scalar("OchreStartCm", -60000.0), scalar("OchreFullCm", -220000.0))
     grass = lerp(grass, color("GrassDry", (0.2, 0.15, 0.04)), west)
 
+    # Wooded slopes: between about 6 m and 300 m, off the cliffs, the ground goes dark conifer green (the trees themselves are scattered by the layout).
+    wood_amount = link(ramp(z, scalar("WoodStartCm", 500.0), scalar("WoodFullCm", 2500.0)), node(unreal.MaterialExpressionMultiply), "A")
+    link(ramp(z, scalar("WoodTopEndCm", 33000.0), scalar("WoodTopStartCm", 25000.0)), wood_amount, "B")
+    wood = lerp(color("WoodDark", (0.009, 0.026, 0.013)), color("WoodLight", (0.024, 0.052, 0.02)), noise)
     base = lerp(grass, rock, rock_mask)
+    not_rock = link(node(unreal.MaterialExpressionConstant, r=1.0), node(unreal.MaterialExpressionSubtract), "A")
+    link(rock_mask, not_rock, "B")
+    wood_mask = link(wood_amount, node(unreal.MaterialExpressionMultiply), "A")
+    link(not_rock, wood_mask, "B")
+    base = lerp(base, wood, wood_mask)
     base = lerp(base, forest, forest_mask)
     base = lerp(base, road, road_mask)
     # snow settles on flatter high ground, not on near-vertical faces

@@ -59,6 +59,19 @@ PADS = [
     ("Boathouse", -272, 80, 17, 24, 0.5),  # a landing cut into the foot of the cliff
 ]
 
+# The valley: continuous mountain ranges that start to rise a little beyond the lake's shore and get higher the further from the lake.
+# Hogsmeade and the forest keep gentler ground, and nothing rises close to a flat pad.
+VALLEY_START = 40.0      # m from the shore where the slopes begin
+VALLEY_FULL = 950.0      # m from the shore where they reach full height
+VALLEY_PEAK = (300.0, 650.0)  # lowest and highest range crest (varied by large-scale noise)
+VALLEY_KEEPOUTS = [  # (x, y, radius, feather): no wall inside the radius, full wall beyond radius + feather
+    (1560.0, -2235.0, 1250.0, 700.0),   # Hogsmeade and its hill
+    (0.0, 0.0, 250.0, 200.0),           # the castle's own grounds: the range rises right behind its crag
+]
+VALLEY_PAD_FEATHER = 260.0
+MASSIF = (-60.0, 1050.0, 950.0, 460.0)  # centre x, y, radius and peak height of the mountain behind the castle
+FOREST_WALL_SCALE = 0.55   # the forest floor sits on gentler foothills than the bare ranges
+
 LAKE_DEPTH = -22.0
 CLIFF_HEIGHT = 100.0
 
@@ -181,7 +194,27 @@ def make_height_function(layout):
             t = xp.clip(1.0 - xp.hypot(x - mx, y - my) / (mr * wobble), 0.0, 1.0)
             m = mh * (t ** 1.15) * ridge * (0.7 + 0.35 * crag) * smoothstep(0.0, 0.08, t, xp)
             m = 0.8 * m + 0.2 * xp.floor(m / 35.0) * 35.0
-            h = xp.maximum(h, xp.minimum(m, 750.0))
+            h = xp.maximum(h, xp.minimum(0.6 * m, 750.0))  # the old cone ring is lower: bumps on the ranges now
+
+        # Valley walls: wooded ranges around the lake.
+        wall_d = None
+        for bx, by, br in blobs:
+            d_i = xp.hypot(x - bx, y - by) - br
+            wall_d = d_i if wall_d is None else xp.minimum(wall_d, d_i)
+        wall_s = smoothstep(VALLEY_START, VALLEY_FULL, wall_d, xp)
+        keep = 1.0
+        for kx, ky, kr, kf in VALLEY_KEEPOUTS:
+            keep = keep * smoothstep(kr, kr + kf, xp.hypot(x - kx, y - ky), xp)
+        for _, px, py, radius, blend, _h in PADS:
+            keep = keep * smoothstep(radius + blend, radius + blend + VALLEY_PAD_FEATHER, xp.hypot(x - px, y - py), xp)
+        crest = VALLEY_PEAK[0] + (VALLEY_PEAK[1] - VALLEY_PEAK[0]) * (0.5 + 0.5 * fbm(x, y, 1700.0, 3, 83, xp))
+        spine = 1.0 - xp.abs(fbm(x, y, 950.0, 4, 89, xp))  # ridged: sharp crest lines
+        wall = crest * (wall_s ** 1.25) * (0.6 + 0.5 * spine) * (1.0 + 0.07 * fbm(x, y, 160.0, 3, 97, xp)) * keep
+        wall = wall * (1.0 - (1.0 - FOREST_WALL_SCALE) * forest_w)
+        h = xp.maximum(h, xp.minimum(wall, 700.0))
+        # The mountain behind the castle: Hogwarts sits on the cliff at its foot, as in the films.
+        massif = dome(x, y, MASSIF[0], MASSIF[1], MASSIF[2], MASSIF[3], xp) * (0.7 + 0.45 * spine) * keep
+        h = xp.maximum(h, xp.minimum(massif, 700.0))
 
         # Black Lake basin with a soft bank, plus the island.
         rn = None  # normalised distance to the nearest lake circle: < 1 is inside the lake

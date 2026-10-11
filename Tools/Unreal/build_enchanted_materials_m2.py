@@ -41,7 +41,7 @@ def vector(inst, name):
 made = {}
 for model in sorted(os.listdir(root)):
     mats = os.path.join(root, model, model, "Materials")
-    if not os.path.isdir(mats):
+    if not os.path.isdir(mats) or model == "reeds":  # the reeds have their own material (build_reed_material_m2.py)
         continue
     for name in sorted(f[:-len(".uasset")] for f in os.listdir(mats) if f.endswith(".uasset")):
         if name.startswith("M_Ench_"):
