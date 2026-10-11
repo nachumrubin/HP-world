@@ -14,7 +14,7 @@ import unreal
 mel = unreal.MaterialEditingLibrary
 tools = unreal.AssetToolsHelpers.get_asset_tools()
 DEST = "/Game/HPW/Enchanted/Materials"
-TINT = {"oaks": (0.55, 0.68, 0.5), "grass_tuft": (0.45, 0.62, 0.38), "reeds_lp": (0.5, 0.55, 0.38), "boulder_beach": (0.6, 0.66, 0.6), "boulders_mossy": (0.6, 0.66, 0.6), "rock_table": (0.6, 0.6, 0.62), "pines": (0.7, 0.8, 0.7), "sacred_roots": (0.8, 0.72, 0.6), "trees": (0.55, 0.62, 0.5), "fantasy_tree": (0.6, 0.65, 0.6), "mossy_tree": (0.55, 0.65, 0.5), "moss_clump": (0.45, 0.65, 0.4), "some_plants": (0.5, 0.7, 0.5)}  # default 1,1,1
+TINT = {"nimbus": (0.8, 0.8, 0.8), "oaks": (0.55, 0.68, 0.5), "grass_tuft": (0.45, 0.62, 0.38), "reeds_lp": (0.5, 0.55, 0.38), "boulder_beach": (0.6, 0.66, 0.6), "boulders_mossy": (0.6, 0.66, 0.6), "rock_table": (0.6, 0.6, 0.62), "pines": (0.7, 0.8, 0.7), "sacred_roots": (0.8, 0.72, 0.6), "trees": (0.55, 0.62, 0.5), "fantasy_tree": (0.6, 0.65, 0.6), "mossy_tree": (0.55, 0.65, 0.5), "moss_clump": (0.45, 0.65, 0.4), "some_plants": (0.5, 0.7, 0.5)}  # default 1,1,1
 TINT_BY_MATERIAL = {"fantasy_tree/Blatt1": (0.12, 0.8, 0.65), "fantasy_tree/M_Wood": (0.55, 0.55, 0.9), "mushroom_b/2_002": (0.35, 0.55, 1.2), "mushroom_b/2_003": (0.35, 0.55, 1.2)}  # the leaf texture is autumn orange; this turns it teal-green
 GLOW = {"mushroom_a": 6.0, "plant": 4.0, "lantern_gothic": 12.0, "lantern_old": 8.0}  # emissive multiplier for models with an emissive texture
 root = os.path.join(unreal.SystemLibrary.get_project_directory(), "Content", "HPW", "Enchanted")

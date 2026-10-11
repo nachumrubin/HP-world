@@ -65,3 +65,8 @@ Shore, slope and boulder models (from Sketchfab, in SourceAssets/Enchanted):
 - "Mossy Beach Boulder Photoscan" by EFX (https://sketchfab.com/evan4129), CC BY 4.0, and "Mossy boulders" by Florian Stephens (https://sketchfab.com/florianstephens), CC BY 4.0: shore boulders.
 - "Rock Table" by flschroeter (https://sketchfab.com/flschroeter), **CC BY-NC-SA 4.0** (non-commercial, share-alike): shore boulders. Remove it before any commercial release.
 - "grass" by Georgeous (https://sketchfab.com/intice184) is under Sketchfab's standard licence, which does not allow redistribution, so it is kept out of the repository (see .gitignore); the level skips it if it is missing.
+
+The player (from Sketchfab, in SourceAssets/Player/raw; Tools/make_player_models.py poses Harry and bakes both to SourceAssets/Enchanted):
+
+- "Harry Potter" by Matthew Tew (https://sketchfab.com/matt1279797), CC BY 4.0: the rider. The model is a T-posed static mesh; the seated riding pose is made by Tools/make_player_models.py.
+- "Nimbus 2000" by Alizee Bourbon (https://sketchfab.com/alibabalaboss), CC BY 4.0: the broom.
