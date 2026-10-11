@@ -110,7 +110,10 @@ def make_material():
     dist_j = link(dist, node(unreal.MaterialExpressionAdd), "A")
     link(jag_cm, dist_j, "B")
     forest_mask = ramp(dist_j, scalar("ForestEdgeCm", 85000.0), scalar("ForestCoreCm", 55000.0))
-    forest = color("ForestGround", (0.012, 0.04, 0.02))
+    # The deeper into the forest (east, Y 650 m -> 2000 m), the darker and colder the ground: mossy at the edge, nearly black in the deep.
+    forest_wy = link(world, node(unreal.MaterialExpressionComponentMask, r=False, g=True, b=False, a=False), "")
+    forest_depth = ramp(forest_wy, scalar("ForestDepthStartCm", 65000.0), scalar("ForestDepthEndCm", 200000.0))
+    forest = lerp(color("ForestGround", (0.02, 0.055, 0.022)), color("ForestDeepGround", (0.003, 0.011, 0.011)), forest_depth)
 
     # Roads (metres, X = north, Y = east): painted as packed earth. Tools/greybox_layout.json has no road parts; these are ground colour only.
     road_dist = None

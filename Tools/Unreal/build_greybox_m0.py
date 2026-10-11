@@ -215,21 +215,31 @@ class UnrealBackend:
         return unreal.load_asset(path)
 
     def _forest_mesh(self, key):
-        """(static mesh, height in cm) for an imported Kenney model; (None, 0) if it was not imported."""
+        """([static meshes], height in cm) for an imported model; ([], 0) if it was not imported.
+
+        A key is a Kenney model name, or "ench:<model>:<meshA>+<meshB>" for meshes of an /Game/HPW/Enchanted model that share one origin
+        (trunk first, then foliage). The height is that of the whole group; only the first mesh collides.
+        """
         cache = self.__dict__.setdefault("_forest_meshes", {})
         if key not in cache:
-            disk = os.path.join(unreal.SystemLibrary.get_project_directory(), "Content", "HPW", "Forest", key, key, "StaticMeshes")
-            names = sorted(f[:-len(".uasset")] for f in os.listdir(disk) if f.endswith(".uasset")) if os.path.isdir(disk) else []
-            mesh = unreal.load_asset(f"/Game/HPW/Forest/{key}/{key}/StaticMeshes/{names[0]}") if names else None
-            if mesh is None:
-                unreal.log_warning(f"Greybox: forest model {key} is missing; run Tools/Unreal/import_forest_m2.py")
-                cache[key] = (None, 0.0)
+            if key.startswith("ench:"):
+                _, model, parts = key.split(":")
+                paths = [f"/Game/HPW/Enchanted/{model}/{model}/StaticMeshes/{n}" for n in parts.split("+")]
             else:
-                body = mesh.get_editor_property("body_setup")
+                disk = os.path.join(unreal.SystemLibrary.get_project_directory(), "Content", "HPW", "Forest", key, key, "StaticMeshes")
+                names = sorted(f[:-len(".uasset")] for f in os.listdir(disk) if f.endswith(".uasset")) if os.path.isdir(disk) else []
+                paths = [f"/Game/HPW/Forest/{key}/{key}/StaticMeshes/{names[0]}"] if names else []
+            meshes = [unreal.load_asset(p) for p in paths]
+            if not meshes or any(m is None for m in meshes):
+                unreal.log_warning(f"Greybox: forest model {key} is missing; run Tools/Unreal/import_forest_m2.py or import_enchanted_m2.py")
+                cache[key] = ([], 0.0)
+            else:
+                body = meshes[0].get_editor_property("body_setup")
                 if body.get_editor_property("collision_trace_flag") != unreal.CollisionTraceFlag.CTF_USE_COMPLEX_AS_SIMPLE:
                     body.set_editor_property("collision_trace_flag", unreal.CollisionTraceFlag.CTF_USE_COMPLEX_AS_SIMPLE)
-                    unreal.EditorAssetLibrary.save_loaded_asset(mesh)  # the broom collides with the real trunk and branches
-                cache[key] = (mesh, mesh.get_bounds().box_extent.z * 2.0)
+                    unreal.EditorAssetLibrary.save_loaded_asset(meshes[0])  # the broom collides with the real trunk and branches
+                top = max(m.get_bounds().origin.z + m.get_bounds().box_extent.z for m in meshes)
+                cache[key] = (meshes, top)
         return cache[key]
 
     def instanced_chunks(self, label, folder, mesh_folder, placements, collision):
@@ -259,25 +269,26 @@ class UnrealBackend:
         """groups: {model name: [(x_m, y_m, ground_z_m, yaw_deg, height_m), ...]}; one instanced-mesh actor per model."""
         blueprint_class = self._instance_blueprint().generated_class()
         for key, items in groups.items():
-            mesh, mesh_height_cm = self._forest_mesh(key)
-            if mesh is None or not items:
+            meshes, mesh_height_cm = self._forest_mesh(key)
+            if not meshes or not items:
                 continue
-            actor = self.actors.spawn_actor_from_class(blueprint_class, unreal.Vector(0, 0, 0))
-            component = actor.get_component_by_class(unreal.HierarchicalInstancedStaticMeshComponent)
-            component.set_static_mesh(mesh)
             transforms = []
             for x, y, z, yaw, height in items:
                 scale = height * M_TO_CM / mesh_height_cm
                 transforms.append(unreal.Transform(unreal.Vector(x * M_TO_CM, y * M_TO_CM, (z - 0.3) * M_TO_CM),  # sunk 30 cm so roots never float
                                                    unreal.Rotator(roll=0, pitch=0, yaw=yaw), unreal.Vector(scale, scale, scale)))
-            component.add_instances(transforms, False)
-            if cull_distance_m:
-                component.set_editor_property("instance_end_cull_distance", int(cull_distance_m * M_TO_CM))
-            if not collision:
-                component.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
-            actor.set_actor_label(f"{label}_{key}")
-            actor.set_folder_path(f"Greybox/{folder}")
-            self._tag(actor, [])
+            for index, mesh in enumerate(meshes):
+                actor = self.actors.spawn_actor_from_class(blueprint_class, unreal.Vector(0, 0, 0))
+                component = actor.get_component_by_class(unreal.HierarchicalInstancedStaticMeshComponent)
+                component.set_static_mesh(mesh)
+                component.add_instances(transforms, False)
+                if cull_distance_m:
+                    component.set_editor_property("instance_end_cull_distance", int(cull_distance_m * M_TO_CM))
+                if not collision or index > 0:
+                    component.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+                actor.set_actor_label(f"{label}_{key.split(':')[-1][:40]}_{index}")
+                actor.set_folder_path(f"Greybox/{folder}")
+                self._tag(actor, [])
 
     def castle_model(self, placement):
         """Places an imported model (many static meshes sharing one origin) as one object.
@@ -357,6 +368,36 @@ class UnrealBackend:
             unreal.log_warning(f"Greybox: fog setup incomplete: {error}")
         spawn(unreal.VolumetricCloud, "Clouds")
 
+        self._forest_mood(spawn)
+
+    def _forest_mood(self, spawn):
+        """Two soft-edged post-process boxes over the Forbidden Forest: the deeper (further east) the camera goes, the darker, colder and greener.
+
+        A box brush is 2 m at scale 1; blend_radius fades the effect in over that distance outside the box, so there is no visible border.
+        """
+        zones = [("ForestMoodEdge", (-150, 1320, 100), (2500, 1500, 400), 700.0, 0.55, -0.35, (0.92, 1.05, 0.98)),
+                 ("ForestMoodDeep", (-150, 1700, 100), (2300, 700, 400), 500.0, 1.0, -1.1, (0.8, 1.05, 1.0))]
+        for label, centre_m, size_m, blend_m, weight, bias, tint in zones:
+            volume = spawn(unreal.PostProcessVolume, label)
+            volume.set_actor_location(unreal.Vector(*(c * M_TO_CM for c in centre_m)), False, True)
+            volume.set_actor_scale3d(unreal.Vector(*(s * M_TO_CM / 2.0 for s in size_m)))
+            try:
+                volume.set_editor_property("unbound", False)
+                volume.set_editor_property("blend_radius", blend_m * M_TO_CM)
+                volume.set_editor_property("blend_weight", weight)
+                settings = volume.get_editor_property("settings")
+                settings.set_editor_property("override_auto_exposure_bias", True)
+                settings.set_editor_property("auto_exposure_bias", bias)
+                settings.set_editor_property("override_color_saturation", True)
+                settings.set_editor_property("color_saturation", unreal.Vector4(0.85, 0.85, 0.85, 1.0))
+                settings.set_editor_property("override_scene_color_tint", True)
+                settings.set_editor_property("scene_color_tint", unreal.LinearColor(tint[0], tint[1], tint[2], 1.0))
+                settings.set_editor_property("override_vignette_intensity", True)
+                settings.set_editor_property("vignette_intensity", 0.6)
+                volume.set_editor_property("settings", settings)
+            except Exception as error:
+                unreal.log_warning(f"Greybox: forest mood setup incomplete: {error}")
+
     def player_start(self, position_m, yaw):
         actor = self.actors.spawn_actor_from_class(
             unreal.PlayerStart, unreal.Vector(*(c * M_TO_CM for c in position_m)), unreal.Rotator(roll=0, pitch=0, yaw=yaw))
@@ -381,12 +422,31 @@ def ground(x, y):
     return GROUND_HEIGHT(x, y) if GROUND_HEIGHT else 0.0
 
 
+def distance_to_polyline(px, py, points):
+    """Distance in metres from (px, py) to a polyline of [x, y] points."""
+    best = 1e18
+    for (ax, ay), (bx, by) in zip(points, points[1:]):
+        dx, dy = bx - ax, by - ay
+        t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy or 1.0)))
+        best = min(best, math.hypot(px - ax - t * dx, py - ay - t * dy))
+    return best
+
+
+def forest_depth(part, py):
+    """0 at the forest's open (west) edge, 1 in its deepest part; the part's "depth_y" is [y at 0, y at 1] in metres."""
+    y0, y1 = part["depth_y"]
+    return max(0.0, min(1.0, (py - y0) / (y1 - y0)))
+
+
 def scatter_ok(part, clearings, px, py, r, angle):
     """Shared placement filter for scatter and tree_scatter parts: ragged edge, clearings, ground height range, water only."""
     if part.get("ragged_edge") and r > part["radius"] * (0.72 + 0.28 * (0.5 + 0.5 * math.sin(5 * angle + 11.0 * part["seed"]) * math.cos(2 * angle + part["seed"]))):
         return False  # ragged forest edge instead of a clean circle
     if any(math.hypot(px - c["center"][0], py - c["center"][1]) < c["radius"] for c in clearings):
         return False
+    for path, clearance in part.get("avoid_paths", []):
+        if distance_to_polyline(px, py, path) < clearance:
+            return False  # keep trails open through the forest
     if "ground_range" in part and not part["ground_range"][0] <= ground(px, py) <= part["ground_range"][1]:
         return False  # e.g. shore boulders only where the bank meets the water
     if "min_slope" in part:
@@ -598,11 +658,26 @@ def build_part(backend, folder, part):
             px, py = cx + r * math.cos(angle), cy + r * math.sin(angle)
             if not scatter_ok(part, clearings, px, py, r, angle):
                 continue
-            choice = rng.choices(meshes, weights)[0]
+            if "depth_y" in part:
+                depth = forest_depth(part, py)
+                usable = [(m, w) for m, w in zip(meshes, weights) if m.get("depth", [0, 1])[0] <= depth <= m.get("depth", [0, 1])[1]]
+                if not usable:
+                    continue
+                choice = rng.choices([m for m, _ in usable], [w for _, w in usable])[0]
+                if "depth_density" in part and rng.random() > part["depth_density"][0] + (part["depth_density"][1] - part["depth_density"][0]) * depth:
+                    continue  # thin out toward one end
+            else:
+                choice = rng.choices(meshes, weights)[0]
             height = rng.uniform(*choice["height_m"])
             groups.setdefault(choice["mesh"], []).append((px, py, base + ground(px, py) - part.get("sink", 0.0) * height, rng.uniform(0, 360), height))
             placed += 1
         backend.instanced_meshes(label, folder, groups, collision, part.get("cull_distance_m"))
+
+    elif kind == "placed_models":
+        groups = {}
+        for item in part["items"]:
+            groups.setdefault(item["mesh"], []).append((item["x"], item["y"], base + ground(item["x"], item["y"]) + item.get("raise_m", 0.0), item.get("yaw", 0.0), item["height_m"]))
+        backend.instanced_meshes(label, folder, groups, collision, None)
 
     elif kind == "mountains":
         rng = random.Random(part["seed"])

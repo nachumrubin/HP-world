@@ -34,3 +34,14 @@ by `Tools/Unreal/import_cliff_m2.py` and tiled over the castle crag.
 "Hogwarts 3D" (https://sketchfab.com/3d-models/hogwarts-3d-70dcec840f8444dda2974aa6a9b049e2) by Ju Designer (https://sketchfab.com/JuDesigner) is licensed under
 Creative Commons Attribution 4.0 (http://creativecommons.org/licenses/by/4.0/). It is the castle in the level: scaled up, with its own rock mountain
 left out (the project's crag replaces it) and its black roof materials changed to slate. Source: SourceAssets/Hogwarts/hogwarts_3d_baked.glb.
+
+## Enchanted Forbidden Forest models
+
+All Creative Commons Attribution 4.0 (http://creativecommons.org/licenses/by/4.0/), from Sketchfab, in SourceAssets/Enchanted:
+
+- "Trees" (https://sketchfab.com/3d-models/trees-dbd3f20966de4cae9170413b9c6f891d) by DJMaesen (https://sketchfab.com/bumstrum): the gnarled trees and leafy branches.
+- "Fantasy Tree" (https://sketchfab.com/3d-models/fantasy-tree-0ac3fc3ae2be44a69e37e0ea4d15bb45) by angie_wst (https://sketchfab.com/angie_wst): flattened to one mesh with Tools/merge_glb.py, leaves tinted.
+- "Fantasy Plant 2" (https://sketchfab.com/3d-models/fantasy-plant-2-0ea642fda9f14e6c94296914b1dc11f5) by Mainul (https://sketchfab.com/mainuldesign): undergrowth.
+- "Mushroom_ Tree" by belhajalimahdi (https://sketchfab.com/Mahdi_): the small glowing mushroom trees.
+- "Mushroom tree" by mrrobot (https://sketchfab.com/mrrobot): the giant mushroom trees, tinted.
+- "Tree Gate" by Lucas_VFX (https://sketchfab.com/hirst_lagann): the arch at the forest trail.
