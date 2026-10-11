@@ -14,7 +14,8 @@
     "rock": [0.2, 0.19, 0.17],
     "stone": [0.26, 0.2, 0.12],
     "roof": [0.12, 0.13, 0.17],
-    "water": [0.02, 0.15, 0.18],
+    "water": [0.0008, 0.0016, 0.0018],
+    "mist": [0.1, 0.13, 0.15],
     "wood": [0.2, 0.13, 0.07],
     "forest": [0.02, 0.06, 0.03],
     "leaves": [0.08, 0.14, 0.05],
@@ -35,6 +36,7 @@
       "parts": [
         {"type": "box", "label": "Ground", "terrain": true, "center": [0, 0], "base": -10, "size": [7000, 7000, 10], "material": "grass"},
         {"type": "lake", "label": "BlackLake", "plane": {"center": [775, -550], "size": [3000, 2300]}, "base": 0.05, "thickness": 0.2, "material": "water", "tags": ["Water"], "blobs": [[1005, -975, 540], [1245, -705, 450], [1050, -450, 288], [1245, -285, 198], [435, -990, 472], [-15, -945, 450], [-195, -585, 382], [-315, -195, 281], [-315, 165, 198], [-45, -285, 252], [-330, 330, 170], [-150, 345, 135], [1550, -760, 250], [1780, -520, 230], [1700, -980, 210]]},
+        {"type": "lake_mist", "label": "LakeMist", "plane": {"center": [775, -550], "size": [3000, 2300]}, "base": 0.0, "heights_m": [2, 5], "material": "mist", "tags": ["Water"]},
         {"type": "cone", "label": "LakeIsland", "terrain": true, "center": [21, -819], "base": 0, "diameter": 60, "height": 12, "material": "rock"},
         {"type": "scatter", "label": "LakeRock", "shape": "cone", "center": [-100, -600], "radius": 420, "count": 16, "seed": 21, "diameter": [14, 34], "height": [25, 30], "material": "rock", "collision": false, "water_only": true},
         {"type": "tree_scatter", "label": "OakGroveA", "center": [-300, 700], "radius": 380, "count": 70, "seed": 41, "collision": true, "ground_range": [1.5, 300], "meshes": [{"mesh": "tree_oak", "weight": 3, "height_m": [10, 16]}, {"mesh": "tree_oak_dark", "weight": 2, "height_m": [10, 16]}, {"mesh": "tree_fat", "weight": 2, "height_m": [8, 13]}, {"mesh": "tree_detailed_dark", "weight": 1, "height_m": [9, 14]}]},

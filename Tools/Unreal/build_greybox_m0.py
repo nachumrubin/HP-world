@@ -115,6 +115,8 @@ class UnrealBackend:
 
     def _water_material(self):
         """Glossy water: low roughness so it mirrors the sky, with slow large-scale tint variation for depth."""
+        if unreal.EditorAssetLibrary.does_asset_exist("/Game/HPW/Lake/M_BlackLake"):
+            return unreal.load_asset("/Game/HPW/Lake/M_BlackLake")  # built by Tools/Unreal/build_lake_materials_m2.py
         path = f"{MATERIAL_DIR}/M_Greybox_Water"
         if unreal.EditorAssetLibrary.does_asset_exist(path):
             return unreal.load_asset(path)
@@ -175,7 +177,11 @@ class UnrealBackend:
             mi = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
                 asset_name, MATERIAL_DIR, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
         lib = unreal.MaterialEditingLibrary
-        lib.set_material_instance_parent(mi, self._water_material() if name == "water" else self._parent_material())
+        if name == "mist" and unreal.EditorAssetLibrary.does_asset_exist("/Game/HPW/Lake/M_LakeMist"):
+            parent = unreal.load_asset("/Game/HPW/Lake/M_LakeMist")
+        else:
+            parent = self._water_material() if name == "water" else self._parent_material()
+        lib.set_material_instance_parent(mi, parent)
         # The setter's bool return is unreliable across engine versions (False even when applied), so verify by reading back.
         color = unreal.LinearColor(rgb[0], rgb[1], rgb[2], 1.0)
         lib.set_material_instance_vector_parameter_value(mi, "Color", color)
@@ -385,6 +391,7 @@ class UnrealBackend:
         spawn(unreal.VolumetricCloud, "Clouds")
 
         self._forest_mood(spawn)
+        self._lake_mood(spawn)
 
     def _forest_mood(self, spawn):
         """Two soft-edged post-process boxes over the Forbidden Forest: the deeper (further east) the camera goes, the darker, colder and greener.
@@ -413,6 +420,26 @@ class UnrealBackend:
                 volume.set_editor_property("settings", settings)
             except Exception as error:
                 unreal.log_warning(f"Greybox: forest mood setup incomplete: {error}")
+
+    def _lake_mood(self, spawn):
+        """One soft-edged post-process box over the Black Lake: a touch darker, colder and less saturated."""
+        volume = spawn(unreal.PostProcessVolume, "LakeMood")
+        volume.set_actor_location(unreal.Vector(710 * M_TO_CM, -800 * M_TO_CM, 0), False, True)
+        volume.set_actor_scale3d(unreal.Vector(2200 * M_TO_CM / 2.0, 1400 * M_TO_CM / 2.0, 800 * M_TO_CM / 2.0))
+        try:
+            volume.set_editor_property("unbound", False)
+            volume.set_editor_property("blend_radius", 350 * M_TO_CM)
+            volume.set_editor_property("blend_weight", 0.8)
+            settings = volume.get_editor_property("settings")
+            settings.set_editor_property("override_auto_exposure_bias", True)
+            settings.set_editor_property("auto_exposure_bias", -0.4)
+            settings.set_editor_property("override_color_saturation", True)
+            settings.set_editor_property("color_saturation", unreal.Vector4(0.72, 0.78, 0.8, 1.0))
+            settings.set_editor_property("override_scene_color_tint", True)
+            settings.set_editor_property("scene_color_tint", unreal.LinearColor(0.9, 0.97, 1.04, 1.0))
+            volume.set_editor_property("settings", settings)
+        except Exception as error:
+            unreal.log_warning(f"Greybox: lake mood setup incomplete: {error}")
 
     def player_start(self, position_m, yaw):
         actor = self.actors.spawn_actor_from_class(
@@ -592,11 +619,17 @@ def build_part(backend, folder, part):
                 for iy in range(ny):
                     cx = px - sx / 2 + (ix + 0.5) * sx / nx
                     cy = py - sy / 2 + (iy + 0.5) * sy / ny
-                    backend.shape("box", f"{label}_{ix}_{iy}", folder, (cx, cy, base + t / 2), (sx / nx + 0.5, sy / ny + 0.5, t), (0, 0, 0), material, tags, collision)
+                    backend.shape("box", f"{label}_{ix}_{iy}", folder, (cx, cy, base + t / 2), (sx / nx, sy / ny, t), (0, 0, 0), material, tags, collision)
             return
         for i, (cx, cy, radius) in enumerate(part["blobs"]):
             backend.shape("cylinder", f"{label}{i + 1}", folder, (cx, cy, base + part.get("thickness", 0.2) / 2),
                           (radius * 2, radius * 2, part.get("thickness", 0.2)), (0, 0, 0), material, tags, collision)
+
+    elif kind == "lake_mist":
+        # Flat cold-mist sheets over the lake (collision off): the material fades them where they meet the water, shore or trees.
+        px, py = part["plane"]["center"]; sx, sy = part["plane"]["size"]
+        for i, height in enumerate(part["heights_m"]):
+            backend.shape("box", f"{label}{i + 1}", folder, (px, py, base + height), (sx, sy, 0.2), (0, 0, 0), material, tags, False)
 
     elif kind == "sphere":
         d = part["diameter"]
