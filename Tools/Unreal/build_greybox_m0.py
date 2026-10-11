@@ -294,6 +294,7 @@ class UnrealBackend:
         else:
             disk = os.path.join(unreal.SystemLibrary.get_project_directory(), "Content", folder[len("/Game/"):])
             names = sorted(f[:-len(".uasset")] for f in os.listdir(disk) if f.endswith(".uasset"))
+        names = [n for n in names if n not in placement["exclude"]]  # e.g. the model's own rock mountain
         for index, name in enumerate(names):
             mesh = unreal.load_asset(f"{folder}/{name}")
             if mesh is None:
@@ -632,7 +633,8 @@ def castle_placement(cfg):
     tx, ty = cfg["target_center_m"]
     location = ((tx * M_TO_CM - rx) / M_TO_CM, (ty * M_TO_CM - ry) / M_TO_CM, cfg["base_z_m"] - lo_z * scale / M_TO_CM)
     return {"scale": scale, "location_m": location, "yaw": cfg.get("yaw", 0.0), "folder": cfg["folder"], "first": cfg.get("first"),
-            "count": cfg.get("count", 0), "material": cfg.get("material"), "name": cfg.get("name", "Model")}
+            "count": cfg.get("count", 0), "material": cfg.get("material"), "name": cfg.get("name", "Model"),
+            "exclude": set(cfg.get("exclude", []))}
 
 
 def build(backend, layout):

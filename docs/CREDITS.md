@@ -28,3 +28,9 @@ Crediting is not required but appreciated. 22 models are kept in `SourceAssets/K
 
 Source file: `SourceAssets/Cliff/cliff_face_v2.glb` (`cliff_face_v2_baked.glb` is made from it by `Tools/bake_glb.py`), imported to `/Game/HPW/Cliff`
 by `Tools/Unreal/import_cliff_m2.py` and tiled over the castle crag.
+
+## Hogwarts castle (textured, with windows)
+
+"Hogwarts 3D" (https://sketchfab.com/3d-models/hogwarts-3d-70dcec840f8444dda2974aa6a9b049e2) by Ju Designer (https://sketchfab.com/JuDesigner) is licensed under
+Creative Commons Attribution 4.0 (http://creativecommons.org/licenses/by/4.0/). It is the castle in the level: scaled up, with its own rock mountain
+left out (the project's crag replaces it) and its black roof materials changed to slate. Source: SourceAssets/Hogwarts/hogwarts_3d_baked.glb.
