@@ -14,13 +14,16 @@ DEST = "/Game/HPW/Cliff"
 here = os.path.dirname(os.path.abspath(__file__))
 glb = os.path.normpath(os.path.join(here, "..", "..", "SourceAssets", "Cliff", "cliff_face_v2_baked.glb"))
 
+MATERIAL_ONLY = os.environ.get("HPW_MATERIAL_ONLY") == "1"  # skip the 20 MB re-import, just rebuild M_CliffScan
+
 task = unreal.AssetImportTask()
 task.set_editor_property("filename", glb)
 task.set_editor_property("destination_path", DEST)
 task.set_editor_property("automated", True)
 task.set_editor_property("replace_existing", True)
 task.set_editor_property("save", True)
-unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
+if not MATERIAL_ONLY:
+    unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
 
 content = os.path.join(unreal.SystemLibrary.get_project_directory(), "Content", "HPW", "Cliff", "cliff_face_v2_baked")
 
@@ -42,14 +45,22 @@ if unreal.EditorAssetLibrary.does_asset_exist(material_path):
 material = unreal.AssetToolsHelpers.get_asset_tools().create_asset("M_CliffScan", DEST, unreal.Material, unreal.MaterialFactoryNew())
 sample = lib.create_material_expression(material, unreal.MaterialExpressionTextureSample, -500, 0)
 sample.set_editor_property("texture", unreal.load_asset(f"{DEST}/cliff_face_v2_baked/Textures/{textures[0]}"))
+# The scan photo has bright green grass and sand patches; keep mostly grey rock with only a hint of moss.
+grey = lib.create_material_expression(material, unreal.MaterialExpressionDesaturation, -400, 0)
+lib.connect_material_expressions(sample, "RGB", grey, "Input")
+amount = lib.create_material_expression(material, unreal.MaterialExpressionConstant, -600, 120)
+amount.set_editor_property("r", 0.7)
+lib.connect_material_expressions(amount, "", grey, "Fraction")
 tint = lib.create_material_expression(material, unreal.MaterialExpressionMultiply, -250, 0)
-lib.connect_material_expressions(sample, "RGB", tint, "A")
+lib.connect_material_expressions(grey, "", tint, "A")
 gain = lib.create_material_expression(material, unreal.MaterialExpressionConstant, -500, 200)
-gain.set_editor_property("r", 0.9)  # the scan photos are bright; this keeps the rock from glowing
+gain.set_editor_property("r", 0.42)  # the scan photos are bright; this keeps the rock from glowing
 lib.connect_material_expressions(gain, "", tint, "B")
 rough = lib.create_material_expression(material, unreal.MaterialExpressionConstant, -250, 250)
 rough.set_editor_property("r", 0.9)
 material.set_editor_property("two_sided", True)
+material.set_editor_property("used_with_instanced_static_meshes", True)  # without these the game falls back to the grey checker material
+material.set_editor_property("used_with_nanite", True)
 lib.connect_material_property(tint, "", unreal.MaterialProperty.MP_BASE_COLOR)
 lib.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
 lib.recompile_material(material)

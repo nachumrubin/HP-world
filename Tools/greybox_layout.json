@@ -20,7 +20,7 @@
     "leaves": [0.08, 0.14, 0.05],
     "glass": [0.3, 0.4, 0.36],
     "pumpkin": [0.85, 0.4, 0.05],
-    "pitch": [0.15, 0.3, 0.09],
+    "pitch": [0.07, 0.16, 0.045],
     "gold": [0.8, 0.62, 0.2],
     "gryffindor": [0.55, 0.05, 0.05],
     "slytherin": [0.05, 0.35, 0.15],
@@ -42,7 +42,7 @@
         {"type": "tree_scatter", "label": "OakGroveC", "center": [500, -1750], "radius": 380, "count": 60, "seed": 43, "collision": true, "ground_range": [1.5, 300], "meshes": [{"mesh": "tree_oak", "weight": 3, "height_m": [10, 16]}, {"mesh": "tree_oak_dark", "weight": 2, "height_m": [10, 16]}, {"mesh": "tree_fat", "weight": 2, "height_m": [8, 13]}, {"mesh": "tree_detailed_dark", "weight": 1, "height_m": [9, 14]}]},
         {"type": "tree_scatter", "label": "OakGroveD", "center": [900, 700], "radius": 300, "count": 50, "seed": 44, "collision": true, "ground_range": [1.5, 300], "meshes": [{"mesh": "tree_oak", "weight": 3, "height_m": [10, 16]}, {"mesh": "tree_oak_dark", "weight": 2, "height_m": [10, 16]}, {"mesh": "tree_fat", "weight": 2, "height_m": [8, 13]}, {"mesh": "tree_detailed_dark", "weight": 1, "height_m": [9, 14]}]},
         {"type": "tree_scatter", "label": "OakGroveE", "center": [-700, -300], "radius": 320, "count": 40, "seed": 45, "collision": true, "ground_range": [1.5, 300], "meshes": [{"mesh": "tree_oak", "weight": 3, "height_m": [10, 16]}, {"mesh": "tree_oak_dark", "weight": 2, "height_m": [10, 16]}, {"mesh": "tree_fat", "weight": 2, "height_m": [8, 13]}, {"mesh": "tree_detailed_dark", "weight": 1, "height_m": [9, 14]}]},
-        {"type": "scatter", "label": "ShoreBoulder", "shape": "sphere", "center": [500, -550], "radius": 1000, "count": 260, "seed": 31, "diameter": [3, 10], "height": [2, 6], "material": "rock", "collision": false, "ground_range": [-0.6, 2.0]}
+        {"type": "scatter", "label": "ShoreBoulder", "shape": "sphere", "center": [500, -550], "radius": 1000, "count": 260, "seed": 31, "diameter": [3, 10], "height": [2, 6], "material": "rock", "collision": false, "ground_range": [-0.6, 0.3]}
       ]
     },
     {
