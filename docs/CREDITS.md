@@ -52,3 +52,8 @@ More forest models (Creative Commons Attribution 4.0, from Sketchfab, in SourceA
 - "Moss clump" by ZiemniaQ (https://sketchfab.com/ZiemniaQ): moss patches.
 - "Some Plants" by Mysis The Cat (https://sketchfab.com/isaknordstrom1): ferns and undergrowth.
 - "Old Lantern (game ready asset)" by Pixel Life (https://sketchfab.com/pixellife) and "Gothic Lantern (Mnemolli concept)" by romasharf (https://sketchfab.com/romasharf): the trail's lanterns.
+
+Pines and roots (Creative Commons Attribution 4.0, from Sketchfab, in SourceAssets/Enchanted):
+
+- "Pine Tree Trio - Free Download" by Laurie Annis (https://sketchfab.com/laurieannis): the giant pines that wall in and shade the forest.
+- "Sacred Tree Roots" by stuff scanner (https://sketchfab.com/boypuff): the root mounds in the forest.

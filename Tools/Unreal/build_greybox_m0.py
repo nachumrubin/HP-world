@@ -747,7 +747,8 @@ def build_part(backend, folder, part):
             nx, ny = -ty * side, tx * side
             offset = rng.uniform(*part["hero_side_m"])
             hx, hy = x + nx * offset, y + ny * offset
-            hero_groups.setdefault(rng.choice(part["hero_meshes"]), []).append((hx, hy, base + ground(hx, hy), rng.uniform(0, 360), rng.uniform(*part["hero_height_m"])))
+            hero_h = rng.uniform(*part["hero_height_m"])
+            hero_groups.setdefault(rng.choice(part["hero_meshes"]), []).append((hx, hy, base + ground(hx, hy) - part.get("hero_sink", 0.0) * hero_h, rng.uniform(0, 360), hero_h))
         backend.instanced_meshes(label + "Lanterns", folder, lantern_groups, False, 400)
         backend.instanced_meshes(label + "Heroes", folder, hero_groups, True, 700)
 
