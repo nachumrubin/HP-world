@@ -3,7 +3,8 @@
 For models built from thousands of nodes that re-use a few meshes (leaf cards, petals), which Tools/bake_glb.py cannot handle.
 Keeps POSITION, NORMAL and TEXCOORD_0 only.
 
-    python Tools/merge_glb.py in.glb out.glb
+    python Tools/merge_glb.py in.glb out.glb          # everything as one mesh
+    python Tools/merge_glb.py in.glb out.glb --split  # one mesh per mesh-bearing node, each recentred on its own (for packs of separate plants)
 """
 
 import json
@@ -37,7 +38,7 @@ def local_matrix(node):
     return matrix
 
 
-def main(src, dst):
+def main(src, dst, split=False):
     data = open(src, "rb").read()
     json_len = struct.unpack("<I", data[12:16])[0]
     gltf = json.loads(data[20:20 + json_len])
@@ -69,7 +70,7 @@ def main(src, dst):
     for root in gltf["scenes"][gltf.get("scene", 0)]["nodes"]:
         walk(root, np.eye(4))
 
-    parts = {}  # material index -> lists
+    parts = {}  # (group, material index) -> lists
     for index, matrix in world.items():
         mesh_index = gltf["nodes"][index].get("mesh")
         if mesh_index is None:
@@ -89,20 +90,15 @@ def main(src, dst):
             idx = read(prim["indices"]).reshape(-1).astype(np.int64) if "indices" in prim else np.arange(len(pos))
             if flip:
                 idx = idx.reshape(-1, 3)[:, ::-1].reshape(-1)
-            bucket = parts.setdefault(prim.get("material", -1), {"pos": [], "nrm": [], "uv": [], "idx": [], "base": 0})
+            bucket = parts.setdefault((index if split else 0, prim.get("material", -1)), {"pos": [], "nrm": [], "uv": [], "idx": [], "base": 0})
             bucket["pos"].append(pos)
             bucket["nrm"].append(nrm)
             bucket["uv"].append(uv)
             bucket["idx"].append(idx + bucket["base"])
             bucket["base"] += len(pos)
 
-    allpos = np.concatenate([np.concatenate(b["pos"]) for b in parts.values()])
-    lo, hi = allpos.min(axis=0), allpos.max(axis=0)
-    shift = np.array([(lo[0] + hi[0]) / 2, lo[1], (lo[2] + hi[2]) / 2])
-    unit = 10.0 / (hi[1] - lo[1])  # normalise to a 10 m tall model; the layout scales by height anyway
-
     out_blob = bytearray()
-    views, accessors, prims = [], [], []
+    views, accessors, meshes = [], [], []
 
     def add(array, ctype, atype, target, with_bounds=False):
         while len(out_blob) % 4:
@@ -115,15 +111,25 @@ def main(src, dst):
         accessors.append(acc)
         return len(accessors) - 1
 
-    for material, b in parts.items():
-        pos = ((np.concatenate(b["pos"]) - shift) * unit).astype(np.float32)
-        prim = {"attributes": {"POSITION": add(pos, 5126, "VEC3", 34962, True),
-                               "NORMAL": add(np.concatenate(b["nrm"]).astype(np.float32), 5126, "VEC3", 34962),
-                               "TEXCOORD_0": add(np.concatenate(b["uv"]), 5126, "VEC2", 34962)},
-                "indices": add(np.concatenate(b["idx"]).astype(np.uint32), 5125, "SCALAR", 34963), "mode": 4}
-        if material >= 0:
-            prim["material"] = material
-        prims.append(prim)
+    sizes = []
+    for group in sorted({g for g, _ in parts}):
+        members = {m: b for (g, m), b in parts.items() if g == group}
+        allpos = np.concatenate([np.concatenate(b["pos"]) for b in members.values()])
+        lo, hi = allpos.min(axis=0), allpos.max(axis=0)
+        shift = np.array([(lo[0] + hi[0]) / 2, lo[1], (lo[2] + hi[2]) / 2])
+        unit = 10.0 / max(hi[1] - lo[1], 1e-9)  # normalise to a 10 m tall model; the layout scales by height anyway
+        prims = []
+        for material, b in members.items():
+            pos = ((np.concatenate(b["pos"]) - shift) * unit).astype(np.float32)
+            prim = {"attributes": {"POSITION": add(pos, 5126, "VEC3", 34962, True),
+                                   "NORMAL": add(np.concatenate(b["nrm"]).astype(np.float32), 5126, "VEC3", 34962),
+                                   "TEXCOORD_0": add(np.concatenate(b["uv"]), 5126, "VEC2", 34962)},
+                    "indices": add(np.concatenate(b["idx"]).astype(np.uint32), 5125, "SCALAR", 34963), "mode": 4}
+            if material >= 0:
+                prim["material"] = material
+            prims.append(prim)
+        meshes.append({"name": f"Merged{group}", "primitives": prims})
+        sizes.append((hi - lo) * unit)
 
     # Keep images in the new binary chunk.
     images = []
@@ -136,8 +142,8 @@ def main(src, dst):
         out_blob.extend(chunk)
         images.append({"bufferView": len(views) - 1, "mimeType": image.get("mimeType", "image/png")})
 
-    new = {"asset": gltf["asset"], "scene": 0, "scenes": [{"nodes": [0]}], "nodes": [{"mesh": 0, "name": "Merged"}],
-           "meshes": [{"name": "Merged", "primitives": prims}], "materials": gltf.get("materials", []), "accessors": accessors,
+    new = {"asset": gltf["asset"], "scene": 0, "scenes": [{"nodes": list(range(len(meshes)))}], "nodes": [{"mesh": i, "name": m["name"]} for i, m in enumerate(meshes)],
+           "meshes": meshes, "materials": gltf.get("materials", []), "accessors": accessors,
            "bufferViews": views, "buffers": [{"byteLength": len(out_blob)}]}
     for key in ("textures", "samplers", "extensionsUsed"):
         if key in gltf:
@@ -153,9 +159,10 @@ def main(src, dst):
         f.write(struct.pack("<4sII", b"glTF", 2, total))
         f.write(struct.pack("<I4s", len(body), b"JSON") + body)
         f.write(struct.pack("<I4s", len(out_blob), b"BIN\x00") + bytes(out_blob))
-    size = (hi - lo) * unit
-    print(f"merged {len(world)} nodes into {len(prims)} primitives; size {size[0]:.2f} x {size[2]:.2f}, height {size[1]:.2f} metres)")
+    for i, size in enumerate(sizes):
+        print(f"mesh {i}: size {size[0]:.2f} x {size[2]:.2f}, height {size[1]:.2f} m (normalised)")
+    print(f"merged {len(world)} nodes into {len(meshes)} mesh(es)")
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2])
+    main(sys.argv[1], sys.argv[2], "--split" in sys.argv)

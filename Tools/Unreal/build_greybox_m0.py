@@ -61,6 +61,9 @@ class DryRunBackend:
         assert all(s > 0 for s in scale_m), f"non-positive size on {label}: {scale_m}"
         self.spawned.append((folder, label))
 
+    def point_light(self, label, folder, position_m, color, intensity, radius_m):
+        self.spawned.append((folder, label))
+
     def instanced_chunks(self, label, folder, mesh_folder, placements, collision):
         assert placements is not None
         self.spawned.append((folder, f"{label}: {len(placements)} cladding chunks"))
@@ -290,6 +293,19 @@ class UnrealBackend:
                 actor.set_folder_path(f"Greybox/{folder}")
                 self._tag(actor, [])
 
+    def point_light(self, label, folder, position_m, color, intensity, radius_m):
+        """A small movable, shadowless point light (the forest trail's lanterns)."""
+        actor = self.actors.spawn_actor_from_class(unreal.PointLight, unreal.Vector(*(c * M_TO_CM for c in position_m)))
+        component = actor.get_component_by_class(unreal.PointLightComponent)
+        component.set_mobility(unreal.ComponentMobility.MOVABLE)
+        component.set_editor_property("intensity", intensity)
+        component.set_editor_property("light_color", unreal.Color(r=color[0], g=color[1], b=color[2], a=255))  # Python orders Color as b, g, r, a
+        component.set_editor_property("attenuation_radius", radius_m * M_TO_CM)
+        component.set_editor_property("cast_shadows", False)
+        actor.set_actor_label(label)
+        actor.set_folder_path(f"Greybox/{folder}")
+        self._tag(actor, [])
+
     def castle_model(self, placement):
         """Places an imported model (many static meshes sharing one origin) as one object.
 
@@ -513,6 +529,32 @@ def cladding_placements(part):
     return placements
 
 
+def trail_points(path, start_y, spacing):
+    """Points along a polyline from where it first reaches y = start_y, with the given spacing in metres (a number or a (near, far) pair that
+    widens as y grows). Returns [(x, y, unit tangent x, unit tangent y)]."""
+    out = []
+    carry = 0.0
+    for (ax, ay), (bx, by) in zip(path, path[1:]):
+        length = math.hypot(bx - ax, by - ay)
+        tx, ty = (bx - ax) / length, (by - ay) / length
+        d = 0.0
+        while d < length:
+            x, y = ax + tx * d, ay + ty * d
+            if y >= start_y:
+                if carry <= 0.0:
+                    out.append((x, y, tx, ty))
+                    if isinstance(spacing, (list, tuple)):
+                        carry = spacing[0] + (spacing[1] - spacing[0]) * min(1.0, max(0.0, (y - start_y) / 1300.0))
+                    else:
+                        carry = spacing
+                step = min(2.0, length - d)
+                carry -= step
+                d += step
+            else:
+                d += 2.0
+    return out
+
+
 def build_part(backend, folder, part):
     kind = part["type"]
     label = part["label"]
@@ -678,6 +720,30 @@ def build_part(backend, folder, part):
         for item in part["items"]:
             groups.setdefault(item["mesh"], []).append((item["x"], item["y"], base + ground(item["x"], item["y"]) + item.get("raise_m", 0.0), item.get("yaw", 0.0), item["height_m"]))
         backend.instanced_meshes(label, folder, groups, collision, None)
+
+    elif kind == "forest_trail":
+        # Lanterns on posts along the trail (fewer and further apart the deeper it goes), hero mossy trees beside it, and a small light in each lantern.
+        rng = random.Random(part["seed"])
+        lantern_groups, hero_groups = {}, {}
+        for i, (x, y, tx, ty) in enumerate(trail_points(part["path"], part["start_y"], part["lantern_spacing_m"])):
+            side = 1 if i % 2 == 0 else -1
+            nx, ny = -ty * side, tx * side  # to the left or right of the direction of travel
+            offset = part["lantern_side_m"] + rng.uniform(-0.8, 0.8)
+            lx, ly = x + nx * offset, y + ny * offset
+            ground_z = base + ground(lx, ly)
+            post_h = part["post_height_m"]
+            backend.shape("cylinder", f"{label}Post{i}", folder, (lx, ly, ground_z + post_h / 2), (0.22, 0.22, post_h), (0, 0, 0), part["post_material"], tags, False)
+            mesh = rng.choice(part["lantern_meshes"])
+            lantern_groups.setdefault(mesh, []).append((lx, ly, ground_z + post_h - 0.1, rng.uniform(0, 360), part["lantern_height_m"]))
+            backend.point_light(f"{label}Light{i}", folder, (lx, ly, ground_z + post_h + 0.4), part["light_color"], part["light_intensity"], part["light_radius_m"])
+        for i, (x, y, tx, ty) in enumerate(trail_points(part["path"], part["start_y"], part["hero_spacing_m"])):
+            side = 1 if rng.random() < 0.5 else -1
+            nx, ny = -ty * side, tx * side
+            offset = rng.uniform(*part["hero_side_m"])
+            hx, hy = x + nx * offset, y + ny * offset
+            hero_groups.setdefault(rng.choice(part["hero_meshes"]), []).append((hx, hy, base + ground(hx, hy), rng.uniform(0, 360), rng.uniform(*part["hero_height_m"])))
+        backend.instanced_meshes(label + "Lanterns", folder, lantern_groups, False, 400)
+        backend.instanced_meshes(label + "Heroes", folder, hero_groups, True, 700)
 
     elif kind == "mountains":
         rng = random.Random(part["seed"])

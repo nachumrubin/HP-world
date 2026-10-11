@@ -45,3 +45,10 @@ All Creative Commons Attribution 4.0 (http://creativecommons.org/licenses/by/4.0
 - "Mushroom_ Tree" by belhajalimahdi (https://sketchfab.com/Mahdi_): the small glowing mushroom trees.
 - "Mushroom tree" by mrrobot (https://sketchfab.com/mrrobot): the giant mushroom trees, tinted.
 - "Tree Gate" by Lucas_VFX (https://sketchfab.com/hirst_lagann): the arch at the forest trail.
+
+More forest models (Creative Commons Attribution 4.0, from Sketchfab, in SourceAssets/Enchanted):
+
+- "Tree with ferns and moss" by b_nealie (https://sketchfab.com/b_nealie): the large mossy trees beside the trail.
+- "Moss clump" by ZiemniaQ (https://sketchfab.com/ZiemniaQ): moss patches.
+- "Some Plants" by Mysis The Cat (https://sketchfab.com/isaknordstrom1): ferns and undergrowth.
+- "Old Lantern (game ready asset)" by Pixel Life (https://sketchfab.com/pixellife) and "Gothic Lantern (Mnemolli concept)" by romasharf (https://sketchfab.com/romasharf): the trail's lanterns.
