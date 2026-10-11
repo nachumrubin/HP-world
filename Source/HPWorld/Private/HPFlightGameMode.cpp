@@ -29,6 +29,10 @@ namespace
 		{TEXT("station_train"), FVector(-10000, -120000, 12000), FVector(-38000, -156000, 3500)},
 		{TEXT("lake_waterfall"), FVector(-20000, -90000, 9000), FVector(0, -24000, 3500)},
 		{TEXT("river_forest"), FVector(-60000, 15000, 14000), FVector(-30000, 80000, 500)},
+		{TEXT("castle_top"), FVector(100, 100, 90000), FVector(0, 0, 12000)},
+		{TEXT("castle_north"), FVector(75000, 0, 30000), FVector(0, 0, 14000)},
+		{TEXT("castle_east"), FVector(0, 75000, 30000), FVector(0, 0, 14000)},
+		{TEXT("castle_west"), FVector(0, -75000, 30000), FVector(0, 0, 14000)},
 	};
 }
 
@@ -95,7 +99,7 @@ namespace
 	// Route in metres (X north, Y east, altitude above the lake surface): castle, lake skim, forest, Hogsmeade, station.
 	struct FWaypoint { double X, Y, Alt; };
 	const FWaypoint GRoute[] = {
-		{300, 100, 140}, {500, -500, 12}, {0, -900, 10}, {800, 1200, 90}, {1560, -2235, 120}, {-450, -1365, 80},
+		{0, 0, 140}, {500, -500, 12}, {0, -900, 10}, {800, 1200, 90}, {1560, -2235, 120}, {-450, -1365, 80},
 	};
 }
 
