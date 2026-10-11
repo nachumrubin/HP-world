@@ -361,6 +361,12 @@ def scatter_ok(part, clearings, px, py, r, angle):
         return False
     if "ground_range" in part and not part["ground_range"][0] <= ground(px, py) <= part["ground_range"][1]:
         return False  # e.g. shore boulders only where the bank meets the water
+    if "min_slope" in part:
+        step = 3.0  # m; central differences of the terrain height
+        slope = math.hypot((ground(px + step, py) - ground(px - step, py)) / (2 * step),
+                           (ground(px, py + step) - ground(px, py - step)) / (2 * step))
+        if slope < part["min_slope"]:
+            return False  # e.g. cliff rocks only on the steep cliff face
     if part.get("water_only") and ground(px, py) > -4.0:
         return False  # lake rocks: only where the basin is underwater
     return True
@@ -509,7 +515,8 @@ def build_part(backend, folder, part):
             if not scatter_ok(part, clearings, px, py, r, angle):
                 continue
             choice = rng.choices(meshes, weights)[0]
-            groups.setdefault(choice["mesh"], []).append((px, py, base + ground(px, py), rng.uniform(0, 360), rng.uniform(*choice["height_m"])))
+            height = rng.uniform(*choice["height_m"])
+            groups.setdefault(choice["mesh"], []).append((px, py, base + ground(px, py) - part.get("sink", 0.0) * height, rng.uniform(0, 360), height))
             placed += 1
         backend.instanced_meshes(label, folder, groups, collision, part.get("cull_distance_m"))
 

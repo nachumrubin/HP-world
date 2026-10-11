@@ -82,7 +82,15 @@ def make_material():
                  turbulence=False)
     link(world, noise, "Position")
     grass = lerp(color("GrassDark", (0.035, 0.09, 0.02)), color("GrassLight", (0.09, 0.17, 0.035)), noise)
-    rock = color("Rock", (0.11, 0.10, 0.09))
+    # Rock: two greys mixed by medium-scale noise plus horizontal strata bands from world height, so cliffs read as layered stone.
+    rock_noise = node(unreal.MaterialExpressionNoise, scale=0.0025, quality=1, levels=4, output_min=0.0, output_max=1.0, turbulence=False)
+    link(world, rock_noise, "Position")
+    z_scaled = link(z, node(unreal.MaterialExpressionMultiply), "A")
+    link(node(unreal.MaterialExpressionConstant, r=0.014), z_scaled, "B")
+    strata = link(z_scaled, node(unreal.MaterialExpressionSine), "")
+    band = ramp(strata, scalar("StrataLow", -1.0), scalar("StrataHigh", 1.0))
+    rock_mix = lerp(rock_noise, band, node(unreal.MaterialExpressionConstant, r=0.35))
+    rock = lerp(color("RockDark", (0.045, 0.04, 0.035)), color("RockLight", (0.17, 0.15, 0.125)), rock_mix)
     snow = color("Snow", (0.75, 0.78, 0.82))
     shore = color("Shore", (0.10, 0.075, 0.045))
 
