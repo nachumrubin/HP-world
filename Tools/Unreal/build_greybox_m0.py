@@ -61,6 +61,10 @@ class DryRunBackend:
         assert all(s > 0 for s in scale_m), f"non-positive size on {label}: {scale_m}"
         self.spawned.append((folder, label))
 
+    def instanced_meshes(self, label, folder, groups, collision, cull_distance_m):
+        assert groups is not None
+        self.spawned.append((folder, f"{label}: {sum(len(v) for v in groups.values())} instances of {len(groups)} models"))
+
     def castle_model(self, placement):
         assert placement["scale"] > 0
         self.spawned.append((placement["name"], f"model scale {placement['scale']:.5f}"))
@@ -191,6 +195,63 @@ class UnrealBackend:
         if not collision:
             component.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
 
+    def _instance_blueprint(self):
+        """An Actor with one hierarchical instanced mesh component, created once and reused for every tree/plant model."""
+        path = "/Game/HPW/Forest/BP_TreeInstances"
+        if not unreal.EditorAssetLibrary.does_asset_exist(path):
+            factory = unreal.BlueprintFactory()
+            factory.set_editor_property("parent_class", unreal.Actor)
+            blueprint = unreal.AssetToolsHelpers.get_asset_tools().create_asset("BP_TreeInstances", "/Game/HPW/Forest", unreal.Blueprint, factory)
+            subsystem = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
+            root = subsystem.k2_gather_subobject_data_for_blueprint(blueprint)[0]
+            params = unreal.AddNewSubobjectParams(parent_handle=root, new_class=unreal.HierarchicalInstancedStaticMeshComponent, blueprint_context=blueprint)
+            subsystem.add_new_subobject(params)
+            unreal.BlueprintEditorLibrary.compile_blueprint(blueprint)
+            unreal.EditorAssetLibrary.save_loaded_asset(blueprint)
+        return unreal.load_asset(path)
+
+    def _forest_mesh(self, key):
+        """(static mesh, height in cm) for an imported Kenney model; (None, 0) if it was not imported."""
+        cache = self.__dict__.setdefault("_forest_meshes", {})
+        if key not in cache:
+            disk = os.path.join(unreal.SystemLibrary.get_project_directory(), "Content", "HPW", "Forest", key, key, "StaticMeshes")
+            names = sorted(f[:-len(".uasset")] for f in os.listdir(disk) if f.endswith(".uasset")) if os.path.isdir(disk) else []
+            mesh = unreal.load_asset(f"/Game/HPW/Forest/{key}/{key}/StaticMeshes/{names[0]}") if names else None
+            if mesh is None:
+                unreal.log_warning(f"Greybox: forest model {key} is missing; run Tools/Unreal/import_forest_m2.py")
+                cache[key] = (None, 0.0)
+            else:
+                body = mesh.get_editor_property("body_setup")
+                if body.get_editor_property("collision_trace_flag") != unreal.CollisionTraceFlag.CTF_USE_COMPLEX_AS_SIMPLE:
+                    body.set_editor_property("collision_trace_flag", unreal.CollisionTraceFlag.CTF_USE_COMPLEX_AS_SIMPLE)
+                    unreal.EditorAssetLibrary.save_loaded_asset(mesh)  # the broom collides with the real trunk and branches
+                cache[key] = (mesh, mesh.get_bounds().box_extent.z * 2.0)
+        return cache[key]
+
+    def instanced_meshes(self, label, folder, groups, collision, cull_distance_m):
+        """groups: {model name: [(x_m, y_m, ground_z_m, yaw_deg, height_m), ...]}; one instanced-mesh actor per model."""
+        blueprint_class = self._instance_blueprint().generated_class()
+        for key, items in groups.items():
+            mesh, mesh_height_cm = self._forest_mesh(key)
+            if mesh is None or not items:
+                continue
+            actor = self.actors.spawn_actor_from_class(blueprint_class, unreal.Vector(0, 0, 0))
+            component = actor.get_component_by_class(unreal.HierarchicalInstancedStaticMeshComponent)
+            component.set_static_mesh(mesh)
+            transforms = []
+            for x, y, z, yaw, height in items:
+                scale = height * M_TO_CM / mesh_height_cm
+                transforms.append(unreal.Transform(unreal.Vector(x * M_TO_CM, y * M_TO_CM, (z - 0.3) * M_TO_CM),  # sunk 30 cm so roots never float
+                                                   unreal.Rotator(roll=0, pitch=0, yaw=yaw), unreal.Vector(scale, scale, scale)))
+            component.add_instances(transforms, False)
+            if cull_distance_m:
+                component.set_editor_property("instance_end_cull_distance", int(cull_distance_m * M_TO_CM))
+            if not collision:
+                component.set_collision_enabled(unreal.CollisionEnabled.NO_COLLISION)
+            actor.set_actor_label(f"{label}_{key}")
+            actor.set_folder_path(f"Greybox/{folder}")
+            self._tag(actor, [])
+
     def castle_model(self, placement):
         """Places an imported model (many static meshes sharing one origin) as one object.
 
@@ -290,6 +351,19 @@ def yaw_towards(src, dst):
 
 def ground(x, y):
     return GROUND_HEIGHT(x, y) if GROUND_HEIGHT else 0.0
+
+
+def scatter_ok(part, clearings, px, py, r, angle):
+    """Shared placement filter for scatter and tree_scatter parts: ragged edge, clearings, ground height range, water only."""
+    if part.get("ragged_edge") and r > part["radius"] * (0.72 + 0.28 * (0.5 + 0.5 * math.sin(5 * angle + 11.0 * part["seed"]) * math.cos(2 * angle + part["seed"]))):
+        return False  # ragged forest edge instead of a clean circle
+    if any(math.hypot(px - c["center"][0], py - c["center"][1]) < c["radius"] for c in clearings):
+        return False
+    if "ground_range" in part and not part["ground_range"][0] <= ground(px, py) <= part["ground_range"][1]:
+        return False  # e.g. shore boulders only where the bank meets the water
+    if part.get("water_only") and ground(px, py) > -4.0:
+        return False  # lake rocks: only where the basin is underwater
+    return True
 
 
 def build_part(backend, folder, part):
@@ -409,20 +483,35 @@ def build_part(backend, folder, part):
             r = part["radius"] * math.sqrt(rng.random())
             angle = rng.random() * 2 * math.pi
             px, py = cx + r * math.cos(angle), cy + r * math.sin(angle)
-            if part.get("ragged_edge") and r > part["radius"] * (0.72 + 0.28 * (0.5 + 0.5 * math.sin(5 * angle + 11.0 * part["seed"]) * math.cos(2 * angle + part["seed"]))):
-                continue  # ragged forest edge instead of a clean circle
-            if any(math.hypot(px - c["center"][0], py - c["center"][1]) < c["radius"] for c in clearings):
+            if not scatter_ok(part, clearings, px, py, r, angle):
                 continue
-            if "ground_range" in part and not part["ground_range"][0] <= ground(px, py) <= part["ground_range"][1]:
-                continue  # e.g. shore boulders only where the bank meets the water
-            if part.get("water_only") and ground(px, py) > -4.0:
-                continue  # lake rocks: only where the basin is underwater
             d = rng.uniform(*part["diameter"])
             h = rng.uniform(*part["height"])
             size = (d, d * rng.uniform(0.7, 1.0), h) if shape == "box" else (d, d, h)
             placed += 1
             backend.shape(shape, f"{label}{placed}", folder, (px, py, base + ground(px, py) + h / 2), size, (0, rng.uniform(0, 360), 0),
                           material, tags, collision)
+
+    elif kind == "tree_scatter":
+        # Real tree models as instances: one instanced-mesh actor per model, not one actor per tree.
+        rng = random.Random(part["seed"])
+        cx, cy = part["center"]
+        clearings = part.get("clearings", [])
+        meshes = part["meshes"]
+        weights = [m.get("weight", 1) for m in meshes]
+        groups = {}
+        placed = attempts = 0
+        while placed < part["count"] and attempts < part["count"] * 20:
+            attempts += 1
+            r = part["radius"] * math.sqrt(rng.random())
+            angle = rng.random() * 2 * math.pi
+            px, py = cx + r * math.cos(angle), cy + r * math.sin(angle)
+            if not scatter_ok(part, clearings, px, py, r, angle):
+                continue
+            choice = rng.choices(meshes, weights)[0]
+            groups.setdefault(choice["mesh"], []).append((px, py, base + ground(px, py), rng.uniform(0, 360), rng.uniform(*choice["height_m"])))
+            placed += 1
+        backend.instanced_meshes(label, folder, groups, collision, part.get("cull_distance_m"))
 
     elif kind == "mountains":
         rng = random.Random(part["seed"])
