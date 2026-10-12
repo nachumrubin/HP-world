@@ -32,3 +32,18 @@ __pycache__/
 /SourceAssets/Enchanted/grass_tuft.glb
 /Content/HPW/Enchanted/grass_tuft/
 /Content/HPW/Enchanted/Materials/M_Ench_grass_tuft_*
+
+# Raw upstream downloads (re-download from the links in docs/CREDITS.md; the baked/merged versions next to them are what the import scripts use)
+/SourceAssets/**/raw/
+/SourceAssets/Cliff/cliff_face_v2.glb
+
+# The first castle model, replaced by Castle3D (the level no longer uses it)
+/SourceAssets/Hogwarts/hogwarts_castle.glb
+/Content/HPW/Castle/
+
+# OS and editor noise, logs
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.pyc
